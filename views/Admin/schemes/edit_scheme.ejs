@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Scheme | OIBL Schemes</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <%- include('../../partials/admin_nav') %>
+    <main class="admin-page-layout">
+        <%- include('../../partials/admin_side_nav') %>
+        <div class="content">
+            <div class="page-header">
+                <h1>Edit Scheme</h1>
+            </div>
+
+            <div class="content-card">
+                <form action="/admin/schemes/edit/<%= scheme.scheme_id %>" method="POST">
+                    <div class="form-group">
+                        <label for="scheme_name">Scheme Name</label>
+                        <input id="scheme_name" type="text" name="scheme_name" value="<%= scheme.scheme_name %>" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="insurer">Insurer</label>
+                            <input id="insurer" type="text" name="insurer" value="<%= scheme.insurer || '' %>">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="policy_type">Policy Type</label>
+                            <select id="policy_type" name="policy_type">
+                                <% ['Medical', 'Life', 'Motor', 'Property', 'Travel'].forEach(policyType => { %>
+                                    <option value="<%= policyType %>" <%= scheme.policy_type === policyType ? 'selected' : '' %>><%= policyType %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="status">Status</label>
+                            <select id="status" name="status">
+                                <% ['Draft', 'Pending', 'Approved', 'Rejected'].forEach(status => { %>
+                                    <option value="<%= status %>" <%= scheme.status === status ? 'selected' : '' %>><%= status %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="premium">Premium</label>
+                            <input id="premium" type="number" name="premium" step="0.01" min="0" value="<%= scheme.premium || '' %>">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="inception_date">Inception Date</label>
+                            <input id="inception_date" type="date" name="inception_date" value="<%= scheme.inception_date ? new Date(scheme.inception_date).toISOString().slice(0, 10) : '' %>">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                    <a href="/admin/schemes/add-schemes" class="btn">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

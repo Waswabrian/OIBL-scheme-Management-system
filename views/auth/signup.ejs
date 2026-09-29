@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign Up | OIBL Schemes</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="auth-body">
+    <div class="auth-shell">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <img src="/images/OCTAGON-LOGO.png" alt="OCTAGON logo" />
+        </div>
+
+        <h1>Create account</h1>
+        <p class="auth-subtitle">Register to manage schemes and staff efficiently.</p>
+
+        <% if (error) { %>
+          <div class="alert alert-error"><%= error %></div>
+        <% } %>
+
+        <form method="POST" action="/signup">
+          <label class="form-group">
+            <span>Full name</span>
+            <input type="text" name="full_name" placeholder="John Doe" required />
+          </label>
+
+          <label class="form-group">
+            <span>Email</span>
+            <input type="email" name="email" placeholder="you@example.com" required />
+          </label>
+
+          <label class="form-group">
+            <span>Role</span>
+            <select name="role" class="form-select" required>
+              <option value="Staff">Staff</option>
+              <option value="Admin">Admin</option>
+              <option value="Super Admin">Super Admin</option>
+              <option value="Business Development Officer">BDO</option>
+            </select>
+          </label>
+
+          <label class="form-group">
+            <span>Password</span>
+            <input type="password" name="password" placeholder="Minimum 6 characters" required />
+          </label>
+
+          <button type="submit" class="btn btn-primary auth-btn">Sign up</button>
+        </form>
+
+        <p class="auth-switch">
+          Already have an account?
+          <a href="/login">Login</a>
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

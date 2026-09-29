@@ -1,0 +1,107 @@
+<div class="container">
+
+    <h3>Claims Management</h3>
+
+    <a href="/claims/new"
+       class="btn btn-primary">
+        New Claim
+    </a>
+
+    <table class="table table-bordered">
+
+        <thead>
+            <tr>
+                <th>Claim No</th>
+                <th>Client</th>
+                <th>Policy</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+        <% claims.forEach(claim => { %>
+
+            <tr>
+
+                <td>
+                    <%= claim.claim_number %>
+                </td>
+
+                <td>
+                    <%= claim.client_name %>
+                </td>
+
+                <td>
+                    <%= claim.policy_number %>
+                </td>
+
+                <td>
+                    <%= claim.status %>
+                </td>
+
+                <td>
+                    <a href="/claims/<%= claim.claim_id %>" class="btn btn-sm btn-info">
+                        View
+                    </a>
+                </td>
+
+            </tr>
+
+        <% }) %>
+
+        </tbody>
+
+    </table>
+
+    
+<p>
+    <strong>Scheme:</strong>
+    <%= claims.scheme_name %>
+</p>
+
+<p>
+    <strong>Client:</strong>
+    <%= claims.company_name %>
+</p>
+
+<p>
+    <strong>Insurer:</strong>
+    <%= claims.insurer %>
+</p>
+
+<p>
+    <strong>Cover Type:</strong>
+    <%= claims.policy_type %>
+</p>
+
+<div class="mb-3">
+    <label>Select Scheme</label>
+
+    <select
+        name="scheme_id"
+        class="form-control"
+        required>
+
+        <option value="">
+            Select Scheme
+        </option>
+
+        <% schemes.forEach(scheme => { %>
+
+            <option value="<%= scheme.scheme_id %>">
+
+                <%= scheme.scheme_name %>
+                -
+                <%= scheme.company_name %>
+
+            </option>
+
+        <% }) %>
+
+    </select>
+</div>
+
+
+</div>

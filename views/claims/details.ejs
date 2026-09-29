@@ -1,0 +1,62 @@
+<div class="container">
+
+<h3>
+Claim
+<%= claim.claim_number %>
+</h3>
+
+<div class="card p-3">
+
+    <p>
+        <strong>Client:</strong>
+        <%= claim.client_name %>
+    </p>
+
+    <p>
+        <strong>Policy:</strong>
+        <%= claim.policy_number %>
+    </p>
+
+    <p>
+        <strong>Type:</strong>
+        <%= claim.claim_type %>
+    </p>
+
+    <p>
+        <strong>Status:</strong>
+        <%= claim.status %>
+    </p>
+
+    <p>
+        <strong>Description:</strong>
+        <%= claim.description %>
+    </p>
+
+</div>
+
+status"
+    class="mt-3">
+
+    <select
+        name="status"
+        class="form-control">
+
+        <option>Submitted</option>
+        <option>Under Review</option>
+        <option>Additional Info Required</option>
+        <option>Approved</option>
+        <option>Rejected</option>
+        <option>Settled</option>
+
+    </select>
+
+    <button
+        class="btn btn-primary mt-3">
+
+        Update Status
+
+    </button>
+
+</form>
+
+</div>

@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheme Management | OIBL Schemes</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <%- include('../../partials/admin_nav') %>
+    <main class="admin-page-layout">
+    <%- include('../../partials/admin_side_nav') %>
+    <div class="content">
+<div class="page-header">
+    <h1>Schemes Management</h1>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Total  Schemes</h3>
+        <p><%= schemes.length %></p>
+    </div>
+
+    
+
+    <div class="stat-card">
+        <h3>Motor Policy</h3>
+       <p><%= motorCover %></p>
+    </div>
+    <div class="stat-card">
+        <h3>Medical Policy</h3>
+      <p><%= medicalCover %></p>
+    </div>
+    <div class="stat-card">
+        <h3>Life Policy</h3>
+        <p><%= lifeCover %></p>
+    </div>
+    <div class="stat-card">
+        <h3>fire Policy</h3>
+      <p><%= fireCover %></p>
+    </div>
+</div>
+
+<!-- Collapsible Form -->
+<div class="content-card">
+
+    <div class="section-header">
+        <h2>Manage Schemes</h2>
+
+        <button type="button" id="toggleSchemeForm" class="btn-primary">
+            + Add New Scheme
+        </button>
+    </div>
+
+    <div id="schemeFormContainer" class="hidden">
+
+        <h3>Add New Scheme</h3>
+
+        <form action="/admin/schemes/add" method="POST">
+
+            <div class="form-group">
+                <label>Scheme Name</label>
+                <input
+                    type="text"
+                    name="scheme_name"
+                    required
+                    placeholder="Enter scheme name">
+            </div>
+
+            <div class="row">
+
+                <div class="form-group">
+                    <label>Insurer</label>
+                    <input
+                        type="text"
+                        name="insurer"
+                        required
+                        placeholder="e.g Octagon Africa Insurance">
+                </div>
+
+                <div class="form-group">
+                    <label>Policy Type</label>
+                    <select name="policy_type">
+                        <option value="Medical">Medical</option>
+                        <option value="Life">Life</option>
+                        <option value="Motor">Motor</option>
+                        <option value="Property">Property</option>
+                        <option value="Travel">Travel</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="Draft">Draft</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="row">
+
+                <div class="form-group">
+                    <label>Premium</label>
+                    <input
+                        type="number"
+                        name="premium"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label>Inception Date</label>
+                    <input type="date" name="inception_date">
+                </div>
+
+                <div class="form-group">
+                    <label>Assigned To</label>
+                    <input type="text" name="assigned_to" placeholder="Staff or team name">
+                </div>
+
+            </div>
+
+            <button type="submit" class="btn-primary">
+                Save Scheme
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+<!-- Existing Schemes -->
+<div class="content-card">
+
+    <div class="table-header">
+        <h2>Existing  Schemes</h2>
+
+        <input
+            type="text"
+            id="searchScheme"
+            placeholder="Search schemes...">
+    </div>
+
+    <div class="scheme-table-wrap">
+    <table class="scheme-table">
+    <table>
+  <thead>
+    <tr>
+        <th>Scheme ID</th>
+      <th>Scheme Name</th>
+      <th>Insurer</th>
+      <th>Premium</th>
+      <th>Assigned To</th>
+      <th>Inception Date</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <% schemes.forEach(scheme => { %>
+      <tr>
+        <td><%= scheme.scheme_id %></td>
+        <td><%= scheme.scheme_name %></td>
+        <td><%= scheme.insurer || '-' %></td>
+        <td><%= scheme.premium || '-' %></td>
+        <td><%= scheme.assigned_to || 'Unassigned' %></td>
+        <td>
+          <%= scheme.inception_date
+            ? new Date(scheme.inception_date).toLocaleDateString('en-GB', {
+                day: '2-digit', month: 'short', year: 'numeric'
+              })
+            : '-' %>
+        </td>
+        <td>
+          <span class="status <%= (scheme.status || 'draft').toLowerCase() %>">
+            <%= scheme.status || 'Draft' %>
+          </span>
+        </td>
+        <td>
+          <div class="scheme-actions">
+            <a href="/admin/schemes/edit/<%= scheme.scheme_id %>" class="btn-edit">Edit</a>
+
+            <form action="/admin/schemes/delete/<%= scheme.scheme_id %>"
+                  method="POST"
+                  style="display:inline"
+                  onsubmit="return confirm('Delete this scheme?')">
+              <button type="submit" class="btn-delete">Delete</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const toggleBtn =
+        document.getElementById('toggleSchemeForm');
+
+    const formContainer =
+        document.getElementById('schemeFormContainer');
+
+    toggleBtn.addEventListener('click', () => {
+
+        if (formContainer.classList.contains('hidden')) {
+
+            formContainer.classList.remove('hidden');
+            toggleBtn.textContent = '− Hide Form';
+
+        } else {
+
+            formContainer.classList.add('hidden');
+            toggleBtn.textContent = '+ Add New Scheme';
+
+        }
+
+    });
+
+    const searchInput = document.getElementById('searchScheme');
+    const schemeRows = document.querySelectorAll('.scheme-table tbody tr');
+
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase();
+        schemeRows.forEach((row) => {
+            row.hidden = !row.textContent.toLowerCase().includes(query);
+        });
+    });
+
+});
+</script>
+
+<style>
+
+.hidden{
+    display:none;
+}
+
+.page-header h1{
+    color:#123d6b;
+    margin-bottom:20px;
+}
+
+.section-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.stats-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:20px;
+    margin-bottom:20px;
+}
+
+.stat-card{
+    background:#fff;
+    padding:20px;
+    border-radius:12px;
+    text-align:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.05);
+}
+
+.stat-card p{
+    font-size:28px;
+    font-weight:bold;
+    color:#123d6b;
+}
+
+.content-card{
+    background:#fff;
+    padding:25px;
+    border-radius:12px;
+    margin-bottom:25px;
+    box-shadow:0 2px 10px rgba(0,0,0,.05);
+}
+
+.form-group{
+    display:flex;
+    flex-direction:column;
+    margin-bottom:15px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea{
+    padding:12px;
+    border:1px solid #ddd;
+    border-radius:8px;
+}
+
+.row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+}
+
+.btn-primary{
+    background:#f7941d;
+    color:#fff;
+    border:none;
+    padding:12px 20px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+.scheme-table{
+    width:100%;
+    min-width:780px;
+    border-collapse:separate;
+    border-spacing:0;
+}
+
+.scheme-table th,
+.scheme-table td{
+    padding:15px 16px;
+    border-bottom:1px solid #e4ebf5;
+    text-align:left;
+    vertical-align:middle;
+}
+
+.scheme-table th{
+    background:#edf3ff;
+    color:#16324f;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    white-space:nowrap;
+}
+
+.scheme-table tbody tr:hover{
+    background:#f8fbff;
+}
+
+.scheme-table td:first-child{
+    color:#16324f;
+    font-weight:700;
+}
+
+.scheme-table-wrap{
+    overflow-x:auto;
+    border:1px solid #e4ebf5;
+    border-radius:12px;
+}
+
+.scheme-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    white-space:nowrap;
+}
+
+.status{
+    display:inline-flex;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+}
+
+.status.active{
+    background:#dcfce7;
+    color:#15803d;
+}
+
+.status.inactive{
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
+.status.draft{
+    background:#e8edf6;
+    color:#475467;
+}
+
+.status.pending{
+    background:#fff3cd;
+    color:#8a6d00;
+}
+
+.status.approved{
+    background:#dcfce7;
+    color:#15803d;
+}
+
+.status.rejected{
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
+.btn-edit{
+    background:#2563eb;
+    color:white;
+    padding:8px 12px;
+    border-radius:7px;
+    text-decoration:none;
+    margin-right:5px;
+}
+
+.btn-delete{
+    background:#dc2626;
+    color:white;
+    padding:8px 12px;
+    border-radius:7px;
+    text-decoration:none;
+}
+
+.table-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+}
+
+#searchScheme{
+    padding:10px;
+    border:1px solid #ddd;
+    border-radius:8px;
+    width:250px;
+}
+
+</style>
+    </div>
+    </main>
+</body>
+</html>
+<link rel="stylesheet" href="/styles.css" />

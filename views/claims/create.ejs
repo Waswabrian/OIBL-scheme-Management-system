@@ -1,0 +1,70 @@
+<div class="container">
+
+    <h3>Raise New Claim</h3>
+
+    <form action="/claims" method="POST">
+
+        <div class="mb-3">
+            <label>Select Scheme</label>
+
+            <select
+                name="scheme_id"
+                class="form-control"
+                required>
+
+                <option value="">
+                    Select Scheme
+                </option>
+
+                <% schemes.forEach(scheme => { %>
+
+                    <option value="<%= scheme.scheme_id %>">
+                        <%= scheme.scheme_name %> -
+                        <%= scheme.company_name %>
+                    </option>
+
+                <% }) %>
+
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label>Claim Type</label>
+
+            <select
+                name="claim_type"
+                class="form-control">
+
+                <option>Medical</option>
+                <option>Motor</option>
+                <option>Life</option>
+                <option>Property</option>
+
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label>Date of Loss</label>
+            <input
+                type="date"
+                name="date_of_loss"
+                class="form-control">
+        </div>
+
+        <div class="mb-3">
+            <label>Description</label>
+            <textarea
+                name="description"
+                rows="5"
+                class="form-control"></textarea>
+        </div>
+
+        <button
+            type="submit"
+            class="btn btn-success">
+            Submit Claim
+        </button>
+
+    </form>
+
+</div>

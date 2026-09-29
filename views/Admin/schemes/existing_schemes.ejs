@@ -1,0 +1,11 @@
+<select name="user_id">
+
+    <% users.forEach(user => { %>
+
+    <option value="<%= user.user_id %>">
+        <%= user.fullname %>
+    </option>
+
+    <% }) %>
+
+</select>

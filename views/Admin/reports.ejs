@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports Dashboard</title>
+
+    <style>
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:Segoe UI, sans-serif;
+        }
+
+        body{
+            background:#f4f7fb;
+            padding:0px;
+        }
+
+        .page-header{
+            /* margin-bottom:25px; */
+        }
+
+        .page-header h1{
+            color:#123d6b;
+        }
+
+        .stats-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+            gap:20px;
+            margin-bottom:30px;
+        }
+
+        .stat-card{
+            background:#fff;
+            padding:25px;
+            border-radius:12px;
+            text-align:center;
+            box-shadow:0 2px 8px rgba(0,0,0,.08);
+        }
+
+        .stat-card h3{
+            color:#666;
+            margin-bottom:10px;
+        }
+
+        .stat-card p{
+            font-size:30px;
+            font-weight:bold;
+            color:#123d6b;
+        }
+
+        .content-card{
+            background:#fff;
+            padding:25px;
+            border-radius:12px;
+            margin-bottom:25px;
+            box-shadow:0 2px 8px rgba(0,0,0,.08);
+        }
+
+        .content-card h2{
+            margin-bottom:20px;
+            color:#123d6b;
+        }
+
+        .report-actions{
+            display:flex;
+            flex-wrap:wrap;
+            gap:15px;
+        }
+
+        .btn{
+            text-decoration:none;
+            color:white;
+            background:#f7941d;
+            padding:12px 18px;
+            border-radius:8px;
+            font-weight:600;
+        }
+
+        .btn:hover{
+            opacity:.9;
+        }
+
+        table{
+            width:100%;
+            border-collapse:collapse;
+        }
+
+        table th{
+            background:#123d6b;
+            color:white;
+        }
+
+        table th,
+        table td{
+            padding:12px;
+            border:1px solid #ddd;
+            text-align:left;
+        }
+
+        .status-active{
+            color:green;
+            font-weight:bold;
+        }
+
+        .status-inactive{
+            color:red;
+            font-weight:bold;
+        }
+
+    </style>
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+    <%- include('../partials/admin_nav') %>
+
+    <main class="admin-page-layout">
+        <%- include('../partials/admin_side_nav') %>
+        <div class="content">
+    <div class="page-header">
+        <h1>Reports Dashboard</h1>
+    </div>
+
+    <!-- Summary Cards -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+            <h3>Total Schemes</h3>
+            <p><%= schemes.length %></p>
+        </div>
+
+        <div class="stat-card">
+            <h3>Total Staff</h3>
+            <p><%= staff.length %></p>
+        </div>
+
+        <div class="stat-card">
+            <h3>Total Allocations</h3>
+            <p><%= allocations.length %></p>
+        </div>
+
+    </div>
+
+    <!-- Actions -->
+
+    <div class="content-card">
+
+        <h2>Generate Reports</h2>
+
+        <div class="report-actions">
+
+            <a href="/admin/reports/schemes" class="btn">
+                Scheme Report
+            </a>
+
+            <a href="/admin/reports/staff" class="btn">
+                Staff Report
+            </a>
+
+            <a href="/admin/reports/allocations" class="btn">
+                Allocation Report
+            </a>
+
+            <a href="/admin/reports/export-excel" class="btn">
+                Export Excel
+            </a>
+
+        </div>
+
+    </div>
+
+    <!-- Schemes Overview -->
+
+    <div class="content-card">
+
+        <h2>Scheme Summary</h2>
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Scheme Name</th>
+                    <th>Status</th>
+                    <th>Budget</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                <% schemes.forEach(scheme => { %>
+
+                <tr>
+
+                    <td><%= scheme.scheme_name %></td>
+
+                    <td>
+
+                        <% if (scheme.status === 'Active') { %>
+
+                            <span class="status-active">
+                                Active
+                            </span>
+
+                        <% } else { %>
+
+                            <span class="status-inactive">
+                                Inactive
+                            </span>
+
+                        <% } %>
+
+                    </td>
+
+                    <td>
+                        <%= scheme.budget || '-' %>
+                    </td>
+
+                    <td>
+                        <%= scheme.start_date || '-' %>
+                    </td>
+
+                    <td>
+                        <%= scheme.end_date || '-' %>
+                    </td>
+
+                </tr>
+
+                <% }) %>
+
+            </tbody>
+
+        </table>
+
+    </div>
+</div>
+</main>
+
+</body>
+</html>

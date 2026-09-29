@@ -1,0 +1,21 @@
+HTTP/1.1 302 Found
+X-Powered-By: Express
+Location: /staff-dashboard
+Vary: Accept
+Content-Type: text/plain; charset=utf-8
+Content-Length: 38
+Set-Cookie: connect.sid=s%3AzPnYw-jZskIA4NtgfO_ilJg5gewrtsFH.DSBd0pBuRWHC%2BCFaJVizbH1qM7MKLLo4T9jPPNX0QS8; Path=/; HttpOnly
+Date: Tue, 01 Sep 2026 12:55:23 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+HTTP/1.1 404 Not Found
+X-Powered-By: Express
+Content-Security-Policy: default-src 'none'
+X-Content-Type-Options: nosniff
+Content-Type: text/html; charset=utf-8
+Content-Length: 155
+Date: Tue, 01 Sep 2026 12:55:23 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | OIBL Schemes</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="auth-body">
+    <div class="auth-shell">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <img src="/images/OCTAGON-LOGO.png" alt="OCTAGON logo" />
+        </div>
+
+        <h1>Welcome back</h1>
+        <p class="auth-subtitle">Sign in to access your scheme dashboard.</p>
+
+        <% if (error) { %>
+          <div class="alert alert-error"><%= error %></div>
+        <% } %>
+
+        <% if (success) { %>
+          <div class="alert alert-success"><%= success %></div>
+        <% } %>
+
+        <form method="POST" action="/login">
+          <label class="form-group">
+            <span>Email</span>
+            <input type="email" name="email" placeholder="you@example.com" required />
+          </label>
+
+          <label class="form-group">
+            <span>Password</span>
+            <input type="password" name="password" placeholder="Enter your password" required />
+          </label>
+
+          <button type="submit" class="btn btn-primary auth-btn">Login</button>
+        </form>
+
+        <p class="auth-switch">
+          Don’t have an account?
+          <a href="/signup">Create one</a>
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

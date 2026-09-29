@@ -1,0 +1,20 @@
+<table>
+
+<% schemes.forEach(scheme => { %>
+
+<tr>
+
+<td><%= scheme.scheme_name %></td>
+<td><%= scheme.status %></td>
+
+<td>
+    <a href="/admin/schemes/<%= scheme.scheme_id %>/update" class="btn btn-sm btn-primary">
+        Update
+    </a>
+</td>
+
+</tr>
+
+<% }) %>
+
+</table>

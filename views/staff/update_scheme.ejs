@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Update Scheme | OIBL</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      body { background: #f4f7fb; margin: 0; font-family: "Segoe UI", sans-serif; }
+      .container { width: min(900px, 90%); margin: 0 auto; }
+      .topbar { background: #123d6b; color: #fff; padding: 16px 0; }
+      .nav { display: flex; justify-content: space-between; align-items: center; }
+      .brand img { height: 42px; }
+      .nav-actions { display: flex; align-items: center; gap: 14px; }
+      .role-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 999px; font-size: 12px; }
+      .panel { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); margin: 32px auto; }
+      .panel h2 { color: #123d6b; margin-bottom: 18px; }
+      .form-grid { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 18px; }
+      .field { display: grid; gap: 8px; }
+      .field label { font-weight: 600; color: #334155; }
+      .field input, .field select { padding: 12px; border: 1px solid #d7e0ee; border-radius: 8px; font-size: 15px; }
+      .full { grid-column: 1 / -1; }
+      .actions { display: flex; gap: 12px; margin-top: 22px; }
+      .btn { display: inline-block; padding: 12px 18px; border-radius: 8px; text-decoration: none; font-weight: 700; }
+      .btn-primary { background: #f7941d; color: #fff; border: none; cursor: pointer; }
+      .btn-secondary { background: #e8edf6; color: #123d6b; }
+      @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } }
+    </style>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="staff-portal-page">
+    <%- include('../partials/staff_topbar') %>
+
+    <main class="dashboard-main">
+      <div class="container dashboard-grid">
+        <%- include('../partials/staff_sidebar') %>
+        <section class="dashboard-content">
+          <div class="panel">
+        <h2>Update Assigned Scheme</h2>
+
+        <form action="/staff/schemes/<%= scheme.scheme_id %>/update" method="POST">
+          <div class="form-grid">
+            <div class="field full">
+              <label>Scheme Name</label>
+              <input type="text" value="<%= scheme.scheme_name %>" disabled />
+            </div>
+
+            <div class="field">
+              <label>Insurer</label>
+              <input type="text" name="insurer" value="<%= scheme.insurer || '' %>" />
+            </div>
+
+            <div class="field">
+              <label>Policy Type</label>
+              <input type="text" name="policy_type" value="<%= scheme.policy_type || '' %>" />
+            </div>
+
+            <div class="field">
+              <label>Status</label>
+              <select name="status">
+                <option value="Draft" <%= scheme.status === 'Draft' ? 'selected' : '' %>>Draft</option>
+                <option value="Pending" <%= scheme.status === 'Pending' ? 'selected' : '' %>>Pending</option>
+                <option value="Approved" <%= scheme.status === 'Approved' ? 'selected' : '' %>>Approved</option>
+                <option value="Rejected" <%= scheme.status === 'Rejected' ? 'selected' : '' %>>Rejected</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Premium</label>
+              <input type="number" name="premium" step="0.01" value="<%= scheme.premium || '' %>" />
+            </div>
+
+            <div class="field full">
+              <label>Inception Date</label>
+              <input type="date" name="inception_date" value="<%= scheme.inception_date || '' %>" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn-primary" type="submit">Save Changes</button>
+            <a class="btn btn-secondary" href="/staff/schemes">Cancel</a>
+          </div>
+        </form>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

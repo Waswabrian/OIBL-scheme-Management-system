@@ -1,0 +1,204 @@
+<html>
+    <body>
+        <link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<nav class="dashboard-sidebar bdo-sidebar">
+
+    <div class="sidebar-header">
+
+        <div class="logo-section">
+            <i class="bi bi-briefcase-fill"></i>
+            <h4>OIBL CRM</h4>
+        </div>
+
+        <small>Business Development</small>
+
+    </div>
+
+    <div class="user-card">
+
+        <i class="bi bi-person-circle user-icon"></i>
+
+        <div>
+            <h6><%= user.full_name %></h6>
+            <small>Business Development Officer</small>
+        </div>
+
+    </div>
+
+    <nav class="sidebar-menu">
+        <a href="/bdo-dashboard">
+            <i class="bi bi-speedometer2"></i>
+            <span>Dashboard</span>
+        </a>
+
+        <a href="/bdo/prospects">
+            <i class="bi bi-people-fill"></i>
+            <span>Prospects</span>
+        </a>
+
+        <a href="/bdo/prospects/new">
+            <i class="bi bi-person-plus-fill"></i>
+            <span>New Prospect</span>
+        </a>
+        <a href="/bdo/schemes">
+            <i class="bi bi-folder-fill"></i>
+            <span>Schemes</span>
+        </a>
+
+        <a href="/bdo/reports">
+            <i class="bi bi-bar-chart-fill"></i>
+            <span>Reports</span>
+        </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+
+        <a href="/logout">
+            <i class="bi bi-box-arrow-right"></i>
+            Logout
+        </a>
+
+    </div>
+
+</nav>
+<style>
+    .bdo-sidebar{
+    width:260px;
+    height:100vh;
+    position:static;
+    left:0;
+    top:0;
+
+    background:linear-gradient(
+        180deg,
+        #0b5ed7 0%,
+        #084298 100%
+    );
+
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+
+    box-shadow:4px 0 15px rgba(0,0,0,0.15);
+    z-index:1000;
+}
+.sidebar-class {
+  position: static; /* Removes fixed position so it scrolls with the page */
+}
+.sidebar-header{
+    padding:25px 20px;
+    border-bottom:1px solid rgba(255,255,255,0.15);
+}
+
+.logo-section{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.logo-section i{
+    font-size:28px;
+}
+
+.logo-section h4{
+    margin:0;
+    font-weight:700;
+}
+
+.sidebar-header small{
+    opacity:.8;
+}
+
+.user-card{
+    margin:20px;
+    padding:15px;
+
+    background:rgba(255,255,255,0.12);
+
+    border-radius:12px;
+
+    display:flex;
+    gap:12px;
+    align-items:center;
+}
+
+.user-icon{
+    font-size:34px;
+}
+
+.user-card h6{
+    margin:0;
+    color:white;
+}
+
+.user-card small{
+    color:#dbe7ff;
+}
+
+.sidebar-menu{
+    flex:1;
+    padding:0 15px;
+}
+
+.menu-link{
+    display:flex;
+    align-items:center;
+    gap:12px;
+
+    color:white;
+    text-decoration:none;
+
+    padding:14px 16px;
+    border-radius:10px;
+
+    margin-bottom:8px;
+
+    transition:.3s ease;
+}
+
+.menu-link:hover{
+    background:rgba(255,255,255,0.15);
+
+    color:white;
+
+    transform:translateX(5px);
+}
+
+.menu-link i{
+    font-size:18px;
+}
+
+.sidebar-footer{
+    padding:20px;
+    border-top:1px solid rgba(255,255,255,0.15);
+}
+
+.logout-btn{
+    display:block;
+
+    text-decoration:none;
+
+    background:#dc3545;
+    color:white;
+
+    text-align:center;
+
+    padding:12px;
+    border-radius:10px;
+
+    font-weight:600;
+
+    transition:.3s;
+}
+
+.logout-btn:hover{
+    background:#bb2d3b;
+    color:white;
+}
+
+</style>
+</body>
+</html>

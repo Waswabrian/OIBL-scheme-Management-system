@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Allocations | OIBL</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      body { background: #f4f7fb; margin: 0; font-family: "Segoe UI", sans-serif; }
+      .container { width: min(1200px, 92%); margin: 0 auto; }
+      .topbar { background: #123d6b; color: #fff; padding: 16px 0; }
+      .nav { display: flex; justify-content: space-between; align-items: center; }
+      .brand img { height: 42px; }
+      .nav-actions { display: flex; align-items: center; gap: 14px; }
+      .role-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 999px; font-size: 12px; }
+      .page-wrap { display: grid; grid-template-columns: 260px 1fr; gap: 24px; padding: 32px 0; }
+      .sidebar, .panel { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); }
+      .sidebar { padding: 20px; }
+      .sidebar h3 { color: #123d6b; margin-bottom: 16px; }
+      .sidebar ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+      .sidebar a { display: block; padding: 10px 12px; border-radius: 8px; background: #f3f7ff; color: #123d6b; text-decoration: none; font-weight: 600; }
+      .content { display: grid; gap: 24px; }
+      .panel { padding: 22px; }
+      .panel h2 { color: #123d6b; margin-bottom: 18px; }
+      .cards { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 16px; }
+      .stat-box { background: linear-gradient(135deg, #eef5ff, #f8fbff); border: 1px solid #dfeafc; border-radius: 10px; padding: 16px; }
+      .stat-box span { display: block; color: #567; margin-bottom: 8px; }
+      .stat-box strong { font-size: 26px; color: #123d6b; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #e6edf7; }
+      th { color: #123d6b; background: #f5f8fd; }
+      .status { display: inline-block; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+      .status.pending { background: #fff3cd; color: #8a6d00; }
+      .status.approved { background: #dff7e8; color: #1f7a45; }
+      .status.rejected { background: #fde4e4; color: #b42318; }
+      .status.draft { background: #e8edf6; color: #475467; }
+      .btn { display: inline-block; background: #f7941d; color: #fff; text-decoration: none; border-radius: 8px; padding: 10px 14px; font-weight: 600; }
+      @media (max-width: 900px) { .page-wrap { grid-template-columns: 1fr; } .cards { grid-template-columns: 1fr; } }
+    </style>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="staff-portal-page">
+    <%- include('../partials/staff_topbar') %>
+
+    <main class="container page-wrap">
+      <%- include('../partials/staff_sidebar') %>
+
+      <section class="content">
+        <div class="panel">
+          <h2>My Allocations</h2>
+          <div class="cards">
+            <div class="stat-box">
+              <span>Active allocations</span>
+              <strong><%= allocations.filter(a => a.status === 'Approved').length %></strong>
+            </div>
+            <div class="stat-box">
+              <span>Pending review</span>
+              <strong><%= allocations.filter(a => a.status === 'Pending').length %></strong>
+            </div>
+            <div class="stat-box">
+              <span>Total</span>
+              <strong><%= allocations.length %></strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Allocation List</h2>
+          <div class="table-scroll">
+          <table class="staff-work-table">
+            <thead>
+              <tr>
+                <th>Scheme</th>
+                <th>Insurer</th>
+                <th>Policy Type</th>
+                <th>Status</th>
+                <th>Inception</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (allocations && allocations.length) { %>
+                <% allocations.forEach((allocation) => { %>
+                  <tr>
+                    <td><%= allocation.scheme_name %></td>
+                    <td><%= allocation.insurer %></td>
+                    <td><%= allocation.policy_type %></td>
+                    <td><span class="status <%= (allocation.status || 'draft').toLowerCase() %>"><%= allocation.status || 'Draft' %></span></td>
+                    <td><%= allocation.inception_date || '—' %></td>
+                    <td><a class="btn" href="/staff/schemes/<%= allocation.scheme_id %>/edit">Update</a></td>
+                  </tr>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="6">No allocation records available.</td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

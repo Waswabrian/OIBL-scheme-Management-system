@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Activity | OIBL</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      body { background: #f4f7fb; margin: 0; font-family: "Segoe UI", sans-serif; }
+      .container { width: min(1200px, 92%); margin: 0 auto; }
+      .topbar { background: #123d6b; color: #fff; padding: 16px 0; }
+      .nav { display: flex; justify-content: space-between; align-items: center; }
+      .brand img { height: 42px; }
+      .nav-actions { display: flex; align-items: center; gap: 14px; }
+      .role-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 999px; font-size: 12px; }
+      .page-wrap { display: grid; grid-template-columns: 260px 1fr; gap: 24px; padding: 32px 0; }
+      .sidebar, .panel { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); }
+      .sidebar { padding: 20px; }
+      .sidebar h3 { color: #123d6b; margin-bottom: 16px; }
+      .sidebar ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+      .sidebar a { display: block; padding: 10px 12px; border-radius: 8px; background: #f3f7ff; color: #123d6b; text-decoration: none; font-weight: 600; }
+      .content { display: grid; gap: 24px; }
+      .panel { padding: 22px; }
+      .panel h2 { color: #123d6b; margin-bottom: 18px; }
+      .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+      .timeline li { display: grid; grid-template-columns: 12px 1fr; gap: 16px; align-items: start; }
+      .dot { width: 12px; height: 12px; border-radius: 50%; background: #f7941d; margin-top: 8px; }
+      .activity-item { background: #f8fbff; border: 1px solid #dfeafc; border-radius: 10px; padding: 14px 16px; }
+      .activity-item strong { font-size: 16px; color: #123d6b; display: block; margin-bottom: 6px; }
+      .activity-item small { color: #5f7184; }
+      .activity-item p { margin: 8px 0 0; color: #425466; line-height: 1.6; }
+      @media (max-width: 900px) { .page-wrap { grid-template-columns: 1fr; } }
+    </style>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="staff-portal-page">
+    <%- include('../partials/staff_topbar') %>
+
+    <main class="container page-wrap">
+      <%- include('../partials/staff_sidebar') %>
+
+      <section class="content">
+        <div class="panel">
+          <h2>Recent Activity</h2>
+          <ul class="timeline">
+            <% if (activities && activities.length) { %>
+              <% activities.forEach((item) => { %>
+                <li>
+                  <span class="dot"></span>
+                  <div class="activity-item">
+                    <strong><%= item.title %></strong>
+                    <small><%= item.time %></small>
+                    <p><%= item.detail %></p>
+                  </div>
+                </li>
+              <% }) %>
+            <% } else { %>
+              <li>
+                <span class="dot"></span>
+                <div class="activity-item">
+                  <strong>No activity recorded</strong>
+                  <p>Your latest actions and updates will appear here.</p>
+                </div>
+              </li>
+            <% } %>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Staff List | OIBL Schemes</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+   <%- include('../partials/admin_nav') %>
+
+
+    <main class="admin-page-layout">
+      <%- include('../partials/admin_side_nav') %>
+      <div class="content">
+        <div class="panel">
+          <div class="staff-page-heading">
+            <div>
+              <p class="eyebrow">Team directory</p>
+              <h2>Staff members</h2>
+              <p class="staff-page-subtitle">Manage staff access and availability.</p>
+            </div>
+            <div class="staff-count"><strong><%= staff ? staff.length : 0 %></strong><span>Members</span></div>
+          </div>
+
+          <div class="staff-table-wrap">
+          <table class="data-table staff-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (staff && staff.length) { %>
+                <% staff.forEach(member => { %>
+                  <tr>
+                    <td class="staff-name"><%= member.full_name %></td>
+                    <td class="staff-email"><%= member.email %></td>
+                    <td><span class="staff-role"><%= member.role %></span></td>
+                    <td><span class="staff-status <%= (member.status || 'Inactive').toLowerCase() %>"><%= member.status || 'Inactive' %></span></td>
+                  </tr>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="4">No staff records found.</td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
+
+<style>
+  .staff-page-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 26px;
+  }
+
+  .staff-page-heading h2 {
+    margin: 0 0 8px;
+    font-size: clamp(1.6rem, 3vw, 2.15rem);
+  }
+
+  .eyebrow {
+    margin: 0 0 8px;
+    color: var(--secondary);
+    font-size: .75rem;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  .staff-page-subtitle {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .staff-count {
+    display: grid;
+    min-width: 92px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    text-align: center;
+  }
+
+  .staff-count strong {
+    color: var(--primary);
+    font-size: 1.5rem;
+  }
+
+  .staff-count span {
+    color: var(--muted);
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .staff-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .staff-table {
+    min-width: 700px;
+  }
+
+  .staff-table th,
+  .staff-table td {
+    padding: 16px 18px;
+  }
+
+  .staff-table tbody tr {
+    transition: background .2s ease;
+  }
+
+  .staff-table tbody tr:hover {
+    background: #f7faff;
+  }
+
+  .staff-name {
+    color: var(--text) !important;
+    font-weight: 750;
+  }
+
+  .staff-email {
+    color: var(--muted) !important;
+  }
+
+  .staff-role,
+  .staff-status {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: .76rem;
+    font-weight: 750;
+  }
+
+  .staff-role {
+    background: #eaf2ff;
+    color: var(--primary);
+  }
+
+  .staff-status.active {
+    background: #dcfce7;
+    color: #15803d;
+  }
+
+  .staff-status.inactive {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  @media (max-width: 620px) {
+    .staff-page-heading {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .staff-count {
+      width: fit-content;
+    }
+  }
+</style>

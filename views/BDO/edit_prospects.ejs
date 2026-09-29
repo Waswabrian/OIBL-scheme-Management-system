@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Prospect | CRM Portal</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --bs-body-bg: #f4f6f9;
+            --primary-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #333333;
+        }
+
+        .page-header {
+            background: var(--primary-gradient);
+            border-radius: 1rem;
+        }
+
+        .card {
+            border: none;
+            border-radius: 1rem;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #2a5298;
+            box-shadow: 0 0 0 0.25rem rgba(42, 82, 152, 0.15);
+        }
+
+        .input-group-text {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            border-right: none;
+        }
+
+        .input-group .form-control, 
+        .input-group .form-select {
+            border-left: none;
+        }
+
+        .input-group:focus-within .input-group-text {
+            border-color: #2a5298;
+            color: #2a5298;
+        }
+
+        .input-group:focus-within .form-control,
+        .input-group:focus-within .form-select {
+            border-color: #2a5298;
+        }
+
+        .btn-primary {
+            background: #2a5298;
+            border-color: #2a5298;
+        }
+
+        .btn-primary:hover, .btn-primary:focus {
+            background: #1e3c72;
+            border-color: #1e3c72;
+        }
+
+        .required-asterisk {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container py-5" style="max-width: 900px;">
+
+    <!-- Header Section -->
+    <div class="page-header shadow-sm p-4 text-white mb-4">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h3 class="fw-bold mb-1">
+                    <i class="bi bi-person-gear me-2"></i>Edit Prospect
+                </h3>
+                <p class="mb-0 opacity-75 small">
+                    Update lead details for <%= prospect.firstName %> <%= prospect.lastName %>
+                </p>
+            </div>
+            <a href="/bdo/prospects" class="btn btn-outline-light btn-sm px-3 rounded-pill">
+                <i class="bi bi-arrow-left me-1"></i> Back to Prospects
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Card Form -->
+    <div class="card shadow-sm">
+        <div class="card-body p-4 p-md-5">
+
+            <form action="/bdo/prospects/edit/<%= prospect.prospect_id %>?_method=PUT" method="POST">
+
+                <div class="row g-4">
+
+                    <!-- First Name -->
+                    <div class="col-md-6">
+                        <label for="contact_person" class="form-label fw-semibold text-secondary small">
+                           Contact Name <span class="required-asterisk">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <input
+                                type="text"
+                                id="contact_person"
+                                name="contact_person"
+                                class="form-control"
+                                value="<%= prospect.contact_person %>"
+                                placeholder="Enter contact name"
+                                required>
+                        </div>
+                    </div>
+
+                    <!-- Last Name -->
+                    <div class="col-md-6">
+                        <label for="company_name" class="form-label fw-semibold text-secondary small">
+                            COMPANY NAME <span class="required-asterisk">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-building"></i></span>
+                            <input
+                                type="text"
+                                id="company_name"
+                                name="company_name"
+                                class="form-control"
+                                value="<%= prospect.company_name %>"
+                                placeholder="Enter company name"
+                                required>
+                        </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="col-md-6">
+                        <label for="email" class="form-label fw-semibold text-secondary small">
+                            EMAIL ADDRESS
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                class="form-control"
+                                value="<%= prospect.email %>"
+                                placeholder="name@company.com">
+                        </div>
+                    </div>
+
+                    <!-- Phone -->
+                    <div class="col-md-6">
+                        <label for="phone" class="form-label fw-semibold text-secondary small">
+                            PHONE NUMBER
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                            <input
+                                type="tel"
+                                id="phone"
+                                name="phone"
+                                class="form-control"
+                                value="<%= prospect.phone %>"
+                                placeholder="+1 (555) 000-0000">
+                        </div>
+                    </div>
+
+                    <!-- Prospect ID (hidden) -->
+                    <input type="hidden" name="prospect_id" value="<%= prospect.prospect_id %>">  
+                    
+                    <!--follow up date-->
+                    <div class="col-md-6">
+                        <label for="follow_up_date" class="form-label fw-semibold text-secondary small">
+                            FOLLOW-UP DATE
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-calendar"></i></span>
+                            <input
+                                type="date"
+                                id="follow_up_date"
+                                name="follow_up_date"
+                                class="form-control"
+                                value="<%= prospect.follow_up_date ? new Date(prospect.follow_up_date).toISOString().split('T')[0] : '' %>">
+                        </div>
+                    </div>
+
+                    <!-- location   -->
+                    <div class="col-md-6">
+                        <label for="location" class="form-label fw-semibold text-secondary small">
+                            LOCATION
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-building"></i></span>
+                            <input
+                                type="text"
+                                id="location"
+                                name="location"
+                                class="form-control"
+                                value="<%= prospect.location %>"
+                                placeholder="Enter location">
+                        </div>
+                    </div>
+                     <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-building"></i></span>
+                            <input
+                                type="number"
+                                id="premium"
+                                name="estimated_premium"
+                                class="form-control"
+                                value="<%= prospect.premium %>"
+                                placeholder="Estimated Premium">
+                        </div>
+                    <!-- Status -->
+                    <div class="col-md-6">
+                        <label for="stage" class="form-label fw-semibold text-secondary small">
+                            STAGE
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-tag"></i></span>
+                            <select id="stage" name="stage" class="form-select">
+    <option value="Lead" <%= prospect.stage === 'Lead' ? 'selected' : '' %>>
+        Lead
+    </option>
+
+    <option value="Contacted" <%= prospect.stage === 'Contacted' ? 'selected' : '' %>>
+        Contacted
+    </option>
+
+    <option value="Proposal" <%= prospect.stage === 'Proposal' ? 'selected' : '' %>>
+        Proposal
+    </option>
+
+    <option value="Negotiation" <%= prospect.stage === 'Negotiation' ? 'selected' : '' %>>
+        Negotiation
+    </option>
+
+    <option value="Won" <%= prospect.stage === 'Won' ? 'selected' : '' %>>
+        Won
+    </option>
+
+    <option value="Lost" <%= prospect.stage === 'Lost' ? 'selected' : '' %>>
+        Lost
+    </option>
+</select>
+                        </div>
+                    </div>
+
+                </div>
+
+                <hr class="my-4 text-muted opacity-25">
+
+                <!-- Action Buttons -->
+                <div class="d-flex align-items-center justify-content-between pt-2">
+                    <a href="/bdo/prospects" class="btn btn-light px-4 border">
+                        Cancel
+                    </a>
+
+                    <button type="submit" class="btn btn-primary px-4 d-inline-flex align-items-center gap-2">
+                        <i class="bi bi-check-circle-fill"></i> Update Prospect
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

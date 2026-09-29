@@ -1,0 +1,115 @@
+<aside class="bdo-sidebar">
+
+    <div class="sidebar-brand">
+        <h4>OIBL CRM</h4>
+        <span>Business Development</span>
+    </div>
+
+    <ul>
+
+        <li>
+            <a href="/bdo-dashboard">
+                <i class="bi bi-speedometer2"></i>
+                Dashboard
+            </a>
+        </li>
+
+        <li>
+            <a href="/bdo/prospects">
+                <i class="bi bi-people-fill"></i>
+                Prospects
+            </a>
+        </li>
+
+        <li>
+            <a href="/bdo/prospects/new">
+                <i class="bi bi-person-plus-fill"></i>
+                New Prospect
+            </a>
+        </li>
+
+        <li>
+            <a href="/bdo/schemes">
+                <i class="bi bi-folder-fill"></i>
+                Schemes
+            </a>
+        </li>
+
+        <li>
+            <a href="/bdo/convert">
+                <i class="bi bi-arrow-repeat"></i>
+                Convert
+            </a>
+        </li>
+
+        <li>
+            <a href="/bdo/reports">
+                <i class="bi bi-bar-chart-fill"></i>
+                Reports
+            </a>
+        </li>
+        <li>
+            <a href="/logout">
+                <i class="bi bi-box-arrow-right"></i>
+                Logout
+            </a>
+        </li>
+
+    </ul>
+
+</aside>
+
+<style>
+
+.bdo-sidebar{
+    position:fixed;
+    top:0;
+    left:0;
+    width:280px;
+    height:100vh;
+    background:linear-gradient(180deg,#1e5fd7,#174bb2);
+    color:white;
+    box-shadow:5px 0 20px rgba(0,0,0,.15);
+}
+
+.sidebar-brand{
+    padding:25px;
+    border-bottom:1px solid rgba(255,255,255,.15);
+}
+
+.sidebar-brand h4{
+    margin:0;
+    font-weight:700;
+}
+
+.sidebar-brand span{
+    opacity:.8;
+    font-size:13px;
+}
+
+.bdo-sidebar ul{
+    list-style:none;
+    padding:15px;
+    margin:0;
+}
+
+.bdo-sidebar li{
+    margin-bottom:8px;
+}
+
+.bdo-sidebar a{
+    color:white;
+    text-decoration:none;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:14px;
+    border-radius:12px;
+    transition:.3s;
+}
+
+.bdo-sidebar a:hover{
+    background:rgba(255,255,255,.15);
+}
+
+</style>

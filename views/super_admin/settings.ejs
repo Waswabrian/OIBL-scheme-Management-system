@@ -1,0 +1,59 @@
+<div class="container py-4">
+
+<h2>System Settings</h2>
+
+<div class="card shadow-sm">
+
+<div class="card-body">
+
+<form action="/super-admin/settings/update"
+      method="POST">
+
+<div class="mb-3">
+    <label class="form-label">
+        Company Name
+    </label>
+    <input type="text"
+           name="company_name"
+           value="<%= settings.company_name %>"
+       class="form-control">
+
+</div>
+
+<div class="mb-3">
+
+<label class="form-label">
+System Email
+</label>
+
+<input type="email"
+       name="system_email"
+       value="<%= settings.system_email %>"
+       class="form-control">
+
+</div>
+
+<div class="mb-3">
+
+<label class="form-label">
+Default Password Length
+</label>
+
+<input type="number"
+       name="password_length"
+       value="<%= settings.password_length %>"
+       class="form-control">
+
+</div>
+
+<button class="btn btn-success">
+Save Settings
+</button>
+
+</form>
+
+</div>
+
+</div>
+
+</div>

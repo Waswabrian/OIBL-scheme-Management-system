@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Development Dashboard</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        rel="stylesheet">
+
+    <style>
+
+        body{
+            background:#f4f6f9;
+            font-family:'Segoe UI',sans-serif;
+            overflow-x:hidden;
+        }
+
+        .main-content{
+            margin-left:280px;
+            padding:30px;
+            min-height:100vh;
+        }
+
+        .dashboard-header{
+            background:#fff;
+            border-radius:16px;
+            padding:25px;
+            margin-bottom:25px;
+            box-shadow:0 2px 15px rgba(0,0,0,.05);
+        }
+
+        .card{
+            border:none;
+            border-radius:16px;
+            box-shadow:0 2px 15px rgba(0,0,0,.05);
+        }
+
+        .stat-card{
+            color:#fff;
+            transition:.3s;
+        }
+
+        .stat-card:hover{
+            transform:translateY(-4px);
+        }
+
+        .card-value{
+            font-size:32px;
+            font-weight:700;
+        }
+
+        .stat-prospects{
+            background:linear-gradient(135deg,#0d6efd,#3b82f6);
+        }
+
+        .stat-schemes{
+            background:linear-gradient(135deg,#198754,#22c55e);
+        }
+
+        .stat-won{
+            background:linear-gradient(135deg,#fd7e14,#f59e0b);
+        }
+
+        .stat-pipeline{
+            background:linear-gradient(135deg,#6f42c1,#8b5cf6);
+        }
+
+        .pipeline-card{
+            color:white;
+            padding:20px;
+            border-radius:15px;
+            text-align:center;
+            font-weight:600;
+        }
+
+        .pipeline-value{
+            font-size:28px;
+            font-weight:700;
+        }
+
+        .lead-stage{background:#0d6efd;}
+        .contact-stage{background:#0dcaf0;}
+        .proposal-stage{background:#f59e0b;}
+        .negotiation-stage{background:#6c757d;}
+        .won-stage{background:#198754;}
+
+        .table th{
+            background:#f8fafc;
+        }
+
+        @media(max-width:992px){
+
+            .main-content{
+                margin-left:0;
+                padding:15px;
+            }
+
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <%- include('../partials/bdo_sidebar') %>
+
+    <div class="main-content">
+
+        <div class="dashboard-header">
+
+            <div class="d-flex justify-content-between align-items-center">
+
+                <div>
+                    <h2>Business Development Dashboard</h2>
+
+                    <p class="text-muted mb-0">
+                        Welcome back,
+                        <strong><%= user.full_name %></strong>
+                    </p>
+                </div>
+                <a href="/bdo/prospects/new"
+                   class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i>
+                    New Prospect
+                </a>
+
+            </div>
+
+        </div>
+
+        <!-- KPI Cards -->
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-md-3">
+                <div class="card stat-card stat-prospects">
+                    <div class="card-body">
+                        <h6>Prospects</h6>
+                        <div class="card-value">
+                            <%= stats.totalProspects || 0 %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card stat-card stat-schemes">
+                    <div class="card-body">
+                        <h6>Business Closed</h6>
+                        <div class="card-value">
+                            <%= stats.totalSchemes || 0 %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card stat-card stat-won">
+                    <div class="card-body">
+                        <h6>Won Business</h6>
+                        <div class="card-value">
+                            <%= stats.wonSchemes || 0 %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card stat-card stat-pipeline">
+                    <div class="card-body">
+                        <h6>Pipeline Value</h6>
+                        <div class="card-value">
+                            KES <%= stats.estimatedPremium || 0 %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Pipeline -->
+
+        <div class="card mb-4">
+
+            <div class="card-header">
+                <strong>Pipeline Overview</strong>
+            </div>
+
+            <div class="card-body">
+
+                <div class="row g-3">
+
+                    <div class="col">
+                        <div class="pipeline-card lead-stage">
+                            <div class="pipeline-value"><%= pipeline.leads || 0 %></div>
+                            Leads
+                        </div>
+                    </div>
+
+                    <div class="col">
+                        <div class="pipeline-card contact-stage">
+                            <div class="pipeline-value"><%= pipeline.contacted || 0 %></div>
+                            Contacted
+                        </div>
+                    </div>
+
+                    <div class="col">
+                        <div class="pipeline-card proposal-stage">
+                            <div class="pipeline-value"><%= pipeline.proposal || 0 %></div>
+                            Proposal
+                        </div>
+                    </div>
+
+                    <div class="col">
+                        <div class="pipeline-card negotiation-stage">
+                            <div class="pipeline-value"><%= pipeline.gotiation || 0 %></div>
+                            Negotiation
+                        </div>
+                    </div>
+
+                    <div class="col">
+                        <div class="pipeline-card won-stage">
+                            <div class="pipeline-value"><%= stats.wonSchemes  || 0 %></div>
+                            Won
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+</html>
