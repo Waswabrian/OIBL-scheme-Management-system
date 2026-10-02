@@ -150,7 +150,7 @@
         <h5>Prospect ID: <%= prospectId %></h5>
 
         <form action="/bdo/schemes/store" method="POST">
-
+            <input type="hidden" name="prospect_id" value="<%= prospectId %> %>">
             <div class="row">
 
                 <div class="col-md-6 mb-3">
@@ -159,7 +159,7 @@
                         type="text"
                         name="company_name"
                         class="form-control"
-                        value="<%= prospects.company_name || '' %>"
+                        value="<%= prospect.company_name || '' %>"
                       >
                 </div>
 
@@ -169,7 +169,7 @@
                         type="text"
                         name="contact_person"
                         class="form-control"
-                        value="<%= prospects.contact_person || '' %>"
+                        value="<%= prospect.contact_person || '' %>"
                        >
                 </div>
 
@@ -183,7 +183,7 @@
                         type="text"
                         name="phone"
                         class="form-control"
-                        value="<%= prospects.phone || '' %>"
+                        value="<%= prospect.phone || '' %>"
                         >
                 </div>
 
@@ -193,7 +193,7 @@
                         type="email"
                         name="email"
                         class="form-control"
-                        value="<%= prospects.email || '' %>"
+                        value="<%= prospect.email || '' %>"
                        >
                 </div>
 
@@ -219,7 +219,7 @@
             <hr>
 
             <div class="d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-secondary" onclick="window.location.href='/bdo/prospects'">
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='/bdo/prospect'">
                     <i class="bi bi-x-circle"></i>
                     Cancel
                 </button>

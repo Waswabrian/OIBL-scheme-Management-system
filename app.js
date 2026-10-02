@@ -1125,7 +1125,7 @@ app.post("/staff/schemes/:id/update", requireAuth, async (req, res) => {
 });
 
 
-app.post("/staff/allocations", requireAuth, async (req, res) => {
+app.post("/admin/allocations", requireAuth, async (req, res) => {
   if (normalizeRole(req.session.user.role) !== "Staff") {
     return res.redirect("/admin-dashboard");
   }
@@ -1280,6 +1280,7 @@ app.post('/admin/schemes/allocations', requireAuth, async (req, res) => {
       : [];
 
   const validation = validateAllocationRequest(req.body);
+
   if (!validation.valid) {
     return renderAllocationPage(req, res, {
       error: validation.error,
@@ -1291,52 +1292,75 @@ app.post('/admin/schemes/allocations', requireAuth, async (req, res) => {
   const { staffId, schemeIds: uniqueSchemeIds } = validation;
 
   try {
-    const [staff] = await db.query(
-      'SELECT staff_id, full_name FROM staff WHERE staff_id = ? LIMIT 1',
+    const [staffRows] = await db.query(
+      `SELECT staff_id, full_name 
+       FROM staff 
+       WHERE staff_id = ? 
+       LIMIT 1`,
       [staffId]
     );
-    if (!staff.length) {
+
+    if (!staffRows.length) {
       return renderAllocationPage(req, res, {
         error: 'Selected staff member was not found.',
         selectedStaffId,
         selectedSchemeIds
       });
     }
-    
-const schemeIds = Array.isArray(req.body.scheme_ids) ? req.body.scheme_ids : [req.body.scheme_ids];
 
-for (const scheme_id of schemeIds) {
-  if (!scheme_id) continue;
+    const staff = staffRows[0];
 
-    // for (const schemeId of uniqueSchemeIds) {
+    for (const schemeId of uniqueSchemeIds) {
+      const [schemeRows] = await db.query(
+        `SELECT scheme_id, scheme_name
+         FROM schemes
+         WHERE scheme_id = ?`,
+        [schemeId]
+      );
+
+      if (!schemeRows.length) continue;
+
+      const scheme = schemeRows[0];
+
       try {
+        // Insert allocation
         await db.query(
           `INSERT INTO scheme_allocations
-           (staff_id, scheme_id, allocated_by, status)
+            (staff_id, scheme_id, allocated_by, status)
            VALUES (?, ?, ?, 'Active')`,
-          [staffId, Number(schemeId), req.session.user.id]
+          [staffId, schemeId, req.session.user.id]
         );
 
-      await db.query(
-          `UPDATE schemes SET assigned_to = ? WHERE scheme_id = ?`,
-          [staff.full_name, scheme_id]
+        // Update scheme assignment
+        await db.query(
+          `UPDATE schemes
+           SET assigned_to = ?
+           WHERE scheme_id = ?`,
+          [staff.full_name, schemeId]
         );
 
-      await db.query(
-          `UPDATE staff 
-          SET schemes = IF(schemes IS NULL OR schemes = '', ?, CONCAT(schemes, ', ', ?)) 
-          WHERE staff_id = ?`,
-          [scheme.scheme_name, scheme.scheme_name, staff_id]
+        // Update staff schemes list
+        await db.query(
+          `UPDATE staff
+           SET schemes =
+             IF(
+               schemes IS NULL OR schemes = '',
+               ?,
+               CONCAT(schemes, ', ', ?)
+             )
+           WHERE staff_id = ?`,
+          [scheme.scheme_name, scheme.scheme_name, staffId]
         );
 
       } catch (insertErr) {
         if (insertErr.message.includes('Duplicate entry')) {
           return renderAllocationPage(req, res, {
-            error: `Scheme ${schemeId} is already allocated to another staff member.`,
+            error: `${scheme.scheme_name} is already allocated.`,
             selectedStaffId,
             selectedSchemeIds
           });
         }
+
         throw insertErr;
       }
     }
@@ -1345,16 +1369,16 @@ for (const scheme_id of schemeIds) {
       userId: req.session.user.id,
       userName: req.session.user.full_name,
       title: 'Schemes allocated',
-      detail: `${uniqueSchemeIds.length} scheme(s) allocated to ${staff[0].full_name}.`
+      detail: `${uniqueSchemeIds.length} scheme(s) allocated to ${staff.full_name}.`
     });
 
-    return res.redirect('/admin/schemes/allocations');
+    res.redirect('/admin/schemes/allocations');
+
   } catch (err) {
-    console.error('[db] admin allocation failed:', err.message);
-    return res.status(500).send('Unable to save allocations.');
+    console.error('[db] admin allocation failed:', err);
+    res.status(500).send('Unable to save allocations.');
   }
 });
-
 
 const downloadWorkbook = async (res, workbook, fileName) => {
   res.setHeader(
@@ -1795,219 +1819,7 @@ app.get('/bdo/prospects/new', requireAuth, (req, res) => {
 
 });
 
-// app.post('/bdo/prospects/create', requireAuth, async (req, res) => {
-//     if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
-//         return res.redirect(getDashboardRoute(req.session.user.role));
-//     }
 
-//     try {
-
-//        const prospect = {
-//     // Common fields
-//     customer_type: req.body.customer_type,
-//     phone: req.body.phone,
-//     email: req.body.email,
-//     lead_source: req.body.lead_source,
-//     estimated_premium: req.body.estimated_premium,
-//     stage: req.body.stage,
-//     follow_up_date: req.body.follow_up_date,
-//     remarks: req.body.remarks,
-
-//     // Corporate fields
-//     company_name: req.body.company_name,
-//     industry: req.body.industry,
-//     location: req.body.location,
-//     county: req.body.county,
-//     contact_person: req.body.contact_person,
-//     estimated_members: req.body.estimated_members,
-
-//     // Retail fields
-//     first_name: req.body.first_name,
-//     last_name: req.body.last_name,
-//     national_id: req.body.national_id,
-//     date_of_birth: req.body.date_of_birth,
-//     occupation: req.body.occupation,
-
-//     // Policy details
-//     product_type: req.body.product_type
-// };
-
-//         const sql = `
-//             INSERT INTO prospects
-//             (
-//                 company_name,
-//                 industry,
-//                 location,
-//                 county,
-//                 contact_person,
-//                 phone,
-//                 email,
-//                 lead_source,
-//                 estimated_members,
-//                 estimated_premium,
-//                 stage,
-//                 follow_up_date,
-//                 remarks,
-//                 created_by
-//             )
-//             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-//         `;
-        
-//         await db.query(sql, [
-//             prospect.company_name,
-//             prospect.industry,
-//             prospect.location,
-//             prospect.county,
-//             prospect.contact_person,
-//             prospect.phone,
-//             prospect.email,
-//             prospect.lead_source,
-//             prospect.estimated_members,
-//             prospect.estimated_premium,
-//             prospect.stage,
-//             prospect.follow_up_date,
-//             prospect.remarks,
-//             req.session.user.id
-//         ]);
-
-//         await recordActivity({
-//             userId: req.session.user.id,
-//             userName: req.session.user.full_name,
-//             title: "New prospect created",
-//             detail: `${prospect.company_name} was added as a new prospect by ${req.session.user.full_name}.`
-//         });
-
-//         res.redirect('/bdo/prospects');
-
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).send('Failed to create prospect');
-//     }
-// });
-
-
-app.post('/bdo/prospects/create', requireAuth, async (req, res) => {
-    try {
-        if (normalizeRole(req.session.user.role) !== 'Business Development Officer') {
-            return res.redirect(getDashboardRoute(req.session.user.role));
-        }
-
-        const customerType = req.body.customer_type;
-        let displayName = '';
-
-        // ============================
-        // CORPORATE PROSPECT
-        // ============================
-        if (customerType === 'Corporate') {
-
-            const sql = `
-                INSERT INTO prospects (
-                    company_name,
-                    industry,
-                    location,
-                    county,
-                    contact_person,
-                    phone,
-                    email,
-                    
-                    estimated_members,
-                    estimated_premium,
-                    stage,
-                    follow_up_date,
-                    remarks,
-                    product_type,
-                    created_by
-                )
-                VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-
-            await db.query(sql, [
-                req.body.company_name,
-                req.body.industry,
-                req.body.location,
-                req.body.county,
-                req.body.contact_person,
-                req.body.phone,
-                req.body.email,
-                
-                req.body.estimated_members,
-                req.body.estimated_premium,
-                req.body.stage,
-                req.body.follow_up_date,
-                req.body.remarks,
-                req.body.product_type,
-                req.session.user.id
-            ]);
-
-            displayName = req.body.company_name;
-        }
-
-        
-        else if (
-            customerType === 'Retail' ||
-            customerType === 'Individual'
-        ) {
-
-            const sql = `
-                INSERT INTO individual_prospects (
-                    first_name,
-                    last_name,
-                    national_id,
-                    date_of_birth,
-                    
-                    phone,
-                    email,
-                    
-                    estimated_premium,
-                    stage,
-                    follow_up_date,
-                    remarks,
-                    product_type,
-                    created_by
-                )
-                VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-
-            await db.query(sql, [
-                req.body.first_name,
-                req.body.last_name,
-                req.body.national_id,
-                req.body.date_of_birth,
-                
-                req.body.phone,
-                req.body.email,
-                
-                req.body.estimated_premium,
-                req.body.stage,
-                req.body.follow_up_date,
-                req.body.remarks,
-                req.body.product_type,
-                req.session.user.id
-            ]);
-
-            displayName = `${req.body.first_name} ${req.body.last_name}`;
-        }
-
-        else {
-            return res.status(400).send('Invalid customer type');
-        }
-
-        
-        await recordActivity({
-            userId: req.session.user.id,
-            userName: req.session.user.full_name,
-            title: 'New Prospect Created',
-            detail: `${displayName} was added by ${req.session.user.full_name}`
-        });
-
-        res.redirect('/bdo/prospects');
-
-    } catch (error) {
-        console.error('Error creating prospect:', error);
-        res.status(500).send('Failed to create prospect');
-    }
-});
-``
  app.get('/bdo/prospects/edit/:id', requireAuth, async (req, res) => {
     if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
         return res.redirect(getDashboardRoute(req.session.user.role));
@@ -2050,8 +1862,18 @@ const [prospects] = await db.query(`
 
     const [followups] = await db.query(`SELECT COUNT(*) AS total_value
 FROM prospects WHERE follow_up_date IS NOT NULL AND follow_up_date <= NOW()`);
+const [retailProspects] = await db.query(`
+            SELECT * FROM individual_prospects 
+            ORDER BY created_at DESC
+        `);
+        const [corporateProspects] = await db.query(`
+            SELECT * FROM prospects 
+            ORDER BY created_at DESC
+        `);
 
     res.render('BDO/prospects', {
+        retailProspects,
+        corporateProspects,
         prospects,
         wonSchemes: prospects.filter(p => p.stage === 'Won').length,
         totalSchemes: prospects.length,
@@ -2060,6 +1882,139 @@ FROM prospects WHERE follow_up_date IS NOT NULL AND follow_up_date <= NOW()`);
         user: req.session.user
     });
 });
+
+app.post('/bdo/prospects/create', requireAuth, async (req, res) => {
+    try {
+        if (normalizeRole(req.session.user.role) !== 'Business Development Officer') {
+            return res.redirect(getDashboardRoute(req.session.user.role));
+        }
+
+        const customerType = req.body.customer_type;
+        let displayName = '';
+
+        // ============================
+        // CORPORATE PROSPECT
+        // ============================
+        if (customerType === 'Corporate') {
+
+            const productType = Array.isArray(req.body.product_type)
+                ? req.body.product_type.join(', ')
+                : req.body.product_type;
+
+            const sql = `
+                INSERT INTO prospects (
+                    company_name,
+                    industry,
+                    location,
+                    county,
+                    contact_person,
+                    phone,
+                    email,
+                    estimated_members,
+                    estimated_premium,
+                    stage,
+                    follow_up_date,
+                    remarks,
+                    product_type,
+                    created_by
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            const values = [
+                req.body.company_name || null,
+                req.body.industry || null,
+                req.body.location || null,
+                req.body.county || null,
+                req.body.contact_person || null,
+                req.body.phone || null,
+                req.body.email || null,
+                req.body.estimated_members || 0,
+                req.body.estimated_premium || 0,
+                req.body.stage || 'Lead',
+                req.body.follow_up_date || null,
+                req.body.remarks || '',
+                productType || null,
+                req.session.user.id
+            ];
+
+            await db.query(sql, values);
+
+            displayName = req.body.company_name;
+        }
+
+        // ============================
+        // RETAIL / INDIVIDUAL PROSPECT
+        // ============================
+        else if (
+            customerType === 'Retail' ||
+            customerType === 'Individual'
+        ) {
+
+            const productType = Array.isArray(req.body.product_type)
+                ? req.body.product_type.join(', ')
+                : req.body.product_type;
+
+            const sql = `
+                INSERT INTO individual_prospects (
+                    first_name,
+                    last_name,
+                    national_id,
+                    date_of_birth,
+                    phone,
+                    email,
+                    estimated_premium,
+                    stage,
+                    follow_up_date,
+                    remarks,
+                    product_type,
+                    created_by
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            const values = [
+                req.body.first_name || null,
+                req.body.last_name || null,
+                req.body.national_id || null,
+                req.body.date_of_birth || null,
+                req.body.phone || null,
+                req.body.email || null,
+                req.body.estimated_premium || 0,
+                req.body.stage || 'Lead',
+                req.body.follow_up_date || null,
+                req.body.remarks || null,
+                productType || null,
+                req.session.user.id
+            ];
+
+            console.log('Individual Prospect Values:', values);
+            console.log('Value Count:', values.length);
+
+            await db.query(sql, values);
+
+            displayName = `${req.body.first_name || ''} ${req.body.last_name || ''}`.trim();
+        }
+
+        else {
+            return res.status(400).send('Invalid customer type');
+        }
+
+        await recordActivity({
+            userId: req.session.user.id,
+            userName: req.session.user.full_name,
+            title: 'New Prospect Created',
+            detail: `${displayName} was added by ${req.session.user.full_name}`
+        });
+
+        res.redirect('/bdo/prospects');
+
+    } catch (error) {
+        console.error('Error creating prospect:', error);
+        res.status(500).send('Failed to create prospect');
+    }
+});
+
 
 app.post('/bdo/prospects/update/:id', requireAuth, async (req, res) => {
     if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
@@ -2313,41 +2268,61 @@ console.log(premium[0].totalPremium);
     });
 });
 
-
+// 1. Convert Page via Query String: /bdo/convert?prospectId=5&type=Retail
 app.get('/bdo/convert', requireAuth, async (req, res) => {
-
     try {
+        const selectedId = req.query.prospectId;
+        const customerType = req.query.type || 'Corporate'; // 'Corporate' or 'Retail'
 
-        const [prospects] = await db.query(`
-            SELECT *
-            FROM prospects
-            WHERE stage <> 'Won'
-            ORDER BY created_at DESC
-        `);
-          
+        // Fetch both Corporate and Retail prospects for dropdown selectors
+        const [corporateProspects] = await db.query(
+            `SELECT *, 'Corporate' AS customer_type FROM prospects WHERE stage <> 'Won' ORDER BY created_at DESC`
+        );
+        const [retailProspects] = await db.query(
+            `SELECT *, 'Retail' AS customer_type FROM individual_prospects WHERE stage <> 'Won' ORDER BY created_at DESC`
+        );
+
+        let prospect = null;
+
+        if (selectedId) {
+            if (customerType === 'Retail') {
+                prospect = retailProspects.find(p => String(p.id) === String(selectedId)) || null;
+            } else {
+                prospect = corporateProspects.find(p => String(p.id || p.prospect_id) === String(selectedId)) || null;
+            }
+        }
+
+        // Fallback to the first available prospect if none matched
+        if (!prospect) {
+            prospect = corporateProspects[0] || retailProspects[0] || null;
+        }
+
         res.render('BDO/convert', {
             user: req.session.user,
-            prospects,
-            prospectId: req.query.prospectId || null,
+            prospect: prospect,
+            corporateProspects: corporateProspects,
+            retailProspects: retailProspects,
+            prospectId: selectedId || null,
+            customerType: prospect ? (prospect.customer_type || customerType) : customerType
         });
 
     } catch (error) {
-
-        console.error(error);
-
+        console.error('Error loading conversion page:', error);
         res.status(500).send('Error loading conversion page');
     }
-
 });
 
-app.get('/bdo/convert/:prospectId', requireAuth, async (req, res) => {
+// 2. Direct Route Parameter: /bdo/convert/:type/:prospectId
+app.get('/bdo/convert/:type/:prospectId', requireAuth, async (req, res) => {
     try {
-        const prospectId = req.params.prospectId;
+        const { type, prospectId } = req.params;
+        let rows = [];
 
-        const [rows] = await db.query(
-            'SELECT * FROM prospects WHERE prospect_id = ?',
-            [prospectId]
-        );
+        if (type.toLowerCase() === 'retail') {
+            [rows] = await db.query('SELECT *, "Retail" AS customer_type FROM individual_prospects WHERE id = ?', [prospectId]);
+        } else {
+            [rows] = await db.query('SELECT *, "Corporate" AS customer_type FROM prospects WHERE id = ? OR prospect_id = ?', [prospectId, prospectId]);
+        }
 
         if (!rows.length) {
             return res.status(404).send('Prospect not found');
@@ -2356,15 +2331,300 @@ app.get('/bdo/convert/:prospectId', requireAuth, async (req, res) => {
         res.render('BDO/convert', {
             user: req.session.user,
             prospect: rows[0],
-            prospectId: req.params.prospectId
+            prospectId: prospectId,
+            customerType: type
         });
 
     } catch (error) {
-        console.error(error);
+        console.error('Error loading conversion page:', error);
         res.status(500).send('Error loading conversion page');
     }
 });
 
+app.post('/bdo/convert/submit', requireAuth, async (req, res) => {
+    // 1. Get an explicit connection from the pool for database transaction safety
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const {
+            prospect_id,
+            prospect_type, // 'Corporate' or 'Retail'
+            policy_number,
+            insurer_id,
+            product_category,
+            start_date,
+            end_date,
+            gross_written_premium,
+            net_premium,
+            statutory_levies,
+            commission_rate_percent,
+            bdo_commission_rate_percent
+        } = req.body;
+
+        const createdBy = req.session.user.id;
+
+        // ====================================================================
+        // STEP 1: FETCH PROSPECT DATA BASED ON TYPE
+        // ====================================================================
+        let clientData = {};
+        
+        if (prospect_type === 'Corporate') {
+            const [rows] = await connection.query(
+                `SELECT * FROM prospects WHERE id = ? FOR UPDATE`, 
+                [prospect_id]
+            );
+            if (!rows.length) throw new Error('Corporate prospect not found');
+            
+            const p = rows[0];
+            clientData = {
+                client_type: 'Corporate',
+                company_or_full_name: p.company_name,
+                registration_or_national_id: null,
+                email: p.email,
+                phone: p.phone,
+                physical_address: `${p.location || ''}, ${p.county || ''}`.trim()
+            };
+
+            // Update prospect stage to Won if not already set
+            await connection.query(`UPDATE prospects SET stage = 'Won' WHERE id = ?`, [prospect_id]);
+
+        } else if (prospect_type === 'Retail') {
+            const [rows] = await connection.query(
+                `SELECT * FROM individual_prospects WHERE id = ? FOR UPDATE`, 
+                [prospect_id]
+            );
+            if (!rows.length) throw new Error('Retail prospect not found');
+
+            const p = rows[0];
+            clientData = {
+                client_type: 'Retail',
+                company_or_full_name: `${p.first_name} ${p.last_name}`.trim(),
+                registration_or_national_id: p.national_id || null,
+                email: p.email,
+                phone: p.phone,
+                physical_address: null
+            };
+
+            // Update prospect stage to Won if not already set
+            await connection.query(`UPDATE individual_prospects SET stage = 'Won' WHERE id = ?`, [prospect_id]);
+        } else {
+            throw new Error('Invalid prospect type specified.');
+        }
+
+        // ====================================================================
+        // STEP 2: CREATE OR FIND CLIENT IN clients_master
+        // ====================================================================
+        let clientId;
+        const [existingClient] = await connection.query(
+            `SELECT id FROM clients_master WHERE email = ? LIMIT 1`,
+            [clientData.email]
+        );
+
+        if (existingClient.length > 0) {
+            clientId = existingClient[0].id;
+        } else {
+            // Generate a unique client code (e.g. CLI-2026-X8F2)
+            const clientCode = `CLI-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+            const [clientResult] = await connection.query(
+                `INSERT INTO clients_master 
+                (client_code, client_type, company_or_full_name, registration_or_national_id, email, phone, physical_address)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    clientCode,
+                    clientData.client_type,
+                    clientData.company_or_full_name,
+                    clientData.registration_or_national_id,
+                    clientData.email,
+                    clientData.phone,
+                    clientData.physical_address
+                ]
+            );
+            clientId = clientResult.insertId;
+        }
+
+        // ====================================================================
+        // STEP 3: CREATE ACTIVE POLICY RECORD
+        // ====================================================================
+        const [policyResult] = await connection.query(
+            `INSERT INTO active_policies (
+                policy_number,
+                client_id,
+                insurer_id,
+                product_category,
+                start_date,
+                end_date,
+                gross_written_premium,
+                net_premium,
+                statutory_levies,
+                status,
+                prospect_type,
+                source_prospect_id,
+                created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?)`,
+            [
+                policy_number,
+                clientId,
+                insurer_id,
+                product_category,
+                start_date,
+                end_date,
+                gross_written_premium || 0.00,
+                net_premium || 0.00,
+                statutory_levies || 0.00,
+                prospect_type,
+                prospect_id,
+                createdBy
+            ]
+        );
+
+        const policyId = policyResult.insertId;
+
+        // ====================================================================
+        // STEP 4: CALCULATE AND CREATE COMMISSION SCHEDULE
+        // ====================================================================
+        const commRate = parseFloat(commission_rate_percent || 0);
+        const bdoCommRate = parseFloat(bdo_commission_rate_percent || 0);
+        const grossPremium = parseFloat(gross_written_premium || 0);
+
+        // Expected Broker Commission = Gross Premium * (Commission Rate %)
+        const expectedCommissionAmount = (grossPremium * commRate) / 100;
+        
+        // Expected BDO Payout = Broker Commission * (BDO Split %)
+        const expectedBdoPayout = (expectedCommissionAmount * bdoCommRate) / 100;
+
+        await connection.query(
+            `INSERT INTO commission_schedules (
+                policy_id,
+                commission_rate_percent,
+                expected_commission_amount,
+                bdo_commission_rate_percent,
+                expected_bdo_payout
+            ) VALUES (?, ?, ?, ?, ?)`,
+            [
+                policyId,
+                commRate,
+                expectedCommissionAmount.toFixed(2),
+                bdoCommRate,
+                expectedBdoPayout.toFixed(2)
+            ]
+        );
+
+        // ====================================================================
+        // STEP 5: INITIALIZE RENEWAL TRACKING (90-Day Prior Trigger)
+        // ====================================================================
+        const policyEndDate = new Date(end_date);
+        const renewalNoticeDate = new Date(policyEndDate);
+        renewalNoticeDate.setDate(renewalNoticeDate.getDate() - 90); // 90 days before expiration
+
+        await connection.query(
+            `INSERT INTO policy_renewals (
+                policy_id,
+                renewal_notice_date,
+                expiry_date,
+                status,
+                assigned_bdo_id
+            ) VALUES (?, ?, ?, 'Pending', ?)`,
+            [
+                policyId,
+                renewalNoticeDate.toISOString().split('T')[0],
+                end_date,
+                createdBy
+            ]
+        );
+
+        // Commit transaction if all inserts succeed
+        await connection.commit();
+
+        req.flash('success_msg', `Policy ${policy_number} successfully activated!`);
+        res.redirect('/bdo/policies');
+
+    } catch (error) {
+        // Rollback all changes if any query fails
+        await connection.rollback();
+        console.error('Policy Conversion Transaction Error:', error);
+        res.status(500).send(`Failed to convert prospect to active policy: ${error.message}`);
+
+    } finally {
+        // Release connection back to pool
+        connection.release();
+    }
+});
+
+module.exports = router;
+
+
+app.post('/bdo/schemes/store', requireAuth, async (req, res) => {
+  if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
+    return res.redirect(getDashboardRoute(req.session.user.role));
+  }
+  
+  const { prospect_id, company_name, product_type, premium, remarks } = req.body;
+  const prospectId = req.params.prospectId;
+
+  if (!prospect_id) {
+    return res.status(400).send("Prospect ID is required.");
+  }
+
+  try {
+    // 1. Fetch prospect details to ensure it exists
+    const [prospectRows] = await db.query(
+      "SELECT * FROM prospects WHERE prospect_id = ? LIMIT 1",
+      [prospect_id]
+    );
+
+    if (!prospectRows.length) {
+      return res.status(404).send("Prospect not found.");
+    }
+   
+    const prospect = prospectRows[0];
+     const schemeName = (company_name || prospect.company_name).trim();
+    
+    const [existingSchemes] = await db.query(
+      'SELECT scheme_id FROM schemes WHERE LOWER(scheme_name) = LOWER(?) LIMIT 1',
+      [schemeName]
+    );
+
+    if (existingSchemes.length > 0) {
+      // Return early with a clear message or re-render the view with an error
+      return res.status(400).send(`A scheme named "${schemeName}" already exists.`);
+    }
+    // 2. Update the prospect status to 'Won' and append conversion notes
+    await db.query(
+      `UPDATE prospects 
+       SET stage = 'Won', remarks = ? 
+       WHERE prospect_id = ?`,
+      [remarks || null, prospect_id]
+    );
+
+    // 3. Convert the prospect into an official scheme record
+    const [schemeResult] = await db.query(
+      `INSERT INTO schemes 
+       (scheme_name, status, policy_type, premium, created_by)
+       VALUES (?, 'New', ?, ?, ?)`,
+      [
+        company_name || prospect.company_name,
+        product_type || prospect.product_type || null,
+        premium || prospect.estimated_premium || null,
+        req.session.user.id
+      ]
+    );
+
+    await recordActivity({
+      userId: req.session.user.id,
+      userName: req.session.user.full_name,
+      title: "Prospect Converted",
+      detail: `${prospect.company_name || 'Prospect #' + prospect_id} was successfully converted into a scheme.`
+    });
+
+    res.redirect("/bdo-dashboard");
+  } catch (err) {
+    console.error("[POST /bdo/schemes/store Error]:", err);
+    res.status(500).send("Unable to convert prospect. Please try again.");
+  }
+});
 
 
 app.get('/bdo/schemes/update/:id', requireAuth, async (req, res) => {
@@ -2496,7 +2756,7 @@ INSERT INTO schemes (
     company_name,
     insurer,
     policy_type,
-    estimated_premium,
+    premium,
     description,
     contact_person,
     phone,

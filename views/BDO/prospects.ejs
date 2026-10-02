@@ -325,122 +325,165 @@
 
                 <div class="table-responsive">
 
-                    <table class="table table-hover align-middle">
-
-                        <thead>
-                            <tr>
-                                <th>Company</th>
-                                <th>Contact Person</th>
-                                <th>Phone</th>
-                                <!-- <th>Members</th> -->
-                                <!-- <th>Premium</th> -->
-                                <th>Stage</th>
-                                <th>Follow Up</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-
-                        <% if(prospects.length === 0){ %>
-
-                            <tr>
-                                <td colspan="8">
-                                    <div class="empty-state">
-                                        <i class="bi bi-folder2-open"></i>
-                                        <h5 class="mt-3">No Prospects Found</h5>
-                                        <p>Create your first prospect to start building your sales pipeline.</p>
-                                    </div>
-                                </td>
-                            </tr>
-
-                        <% } %>
-
-                        <% prospects.forEach(prospect => { %>
-
-                            <tr>
-
-                                <td>
-                                    <div class="company-name">
-                                        <%= prospect.company_name %>
-                                    </div>
-                                </td>
-
-                                <td><%= prospect.contact_person %></td>
-
-                                <td><%= prospect.phone %></td>
-
-                                <!-- <td><%= prospect.estimated_members %></td> -->
-<!-- 
-                                <td class="premium">
-                                    KES <%= Number(prospect.estimated_premium || 0).toLocaleString() %>
-                                </td> -->
-                                
-
-                                <td>
-
-                                    <% if(prospect.stage === 'Lead'){ %>
-                                        <span class="stage-badge lead-badge">Lead</span>
-                                    <% } %>
-
-                                    <% if(prospect.stage === 'Contacted'){ %>
-                                        <span class="stage-badge contacted-badge">Contacted</span>
-                                    <% } %>
-
-                                    <% if(prospect.stage === 'Proposal'){ %>
-                                        <span class="stage-badge proposal-badge">Proposal Sent</span>
-                                    <% } %>
-
-                                    <% if(prospect.stage === 'Negotiation'){ %>
-                                        <span class="stage-badge negotiation-badge">Negotiation</span>
-                                    <% } %>
-
-                                    <% if(prospect.stage === 'Won'){ %>
-                                        <span class="stage-badge won-badge">Won</span>
-                                    <% } %>
-
-                                    <% if(prospect.stage === 'Lost'){ %>
-                                        <span class="stage-badge lost-badge">Lost</span>
-                                    <% } %>
-
-                                </td>
-
-                                <td>
-                                    <%= prospect.follow_up_date %>
-                                </td>
-
-                                <td>
-
-                                    <div class="btn-group">
-                                        <!-- <a href="/bdo/prospects/<%= prospect.prospect_id %>" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-eye"></i>
-                                        </a> -->
-
-                                        <a href="/bdo/prospects/edit/<%= prospect.prospect_id %>" class="btn btn-sm btn-outline-warning">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-
-                                        <a href="/bdo/schemes/create/<%= prospect.prospect_id %>" class="btn btn-sm btn-outline-success">
-                                            <i class="bi bi-arrow-repeat"></i>
-                                        </a>
-
-                                    </div>
-
-                                </td>
-
-                            </tr>
-
-                        <% }) %>
-
-                        </tbody>
-
-                    </table>
                 
-                </div>
-
-            </div>
-
         </div>
+
+        <div class="container-fluid py-4">
+
+    <!-- ========================================== -->
+    <!-- 1. CORPORATE PROSPECTS TABLE               -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-primary">
+                <i class="bi bi-building me-2"></i>Corporate Prospects
+            </h5>
+            <span class="badge bg-primary rounded-pill">
+                <%= corporateProspects.length %> Records
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Company Name</th>
+                            <th>Industry</th>
+                            <th>Location / County</th>
+                            <th>Contact Person</th>
+                            <th>Phone & Email</th>
+                            <th>Est. Premium</th>
+                            <th>Stage</th>
+                            <th>Product Type</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (corporateProspects && corporateProspects.length > 0) { %>
+                            <% corporateProspects.forEach(p => { %>
+                                <tr>
+                                    <td class="fw-bold text-dark"><%= p.company_name %></td>
+                                    <td><%= p.industry || '-' %></td>
+                                    <td><%= p.location %>, <%= p.county %></td>
+                                    <td><%= p.contact_person || '-' %></td>
+                                    <td>
+                                        <div><%= p.phone %></div>
+                                        <small class="text-muted"><%= p.email %></small>
+                                    </td>
+                                    <td class="fw-semibold">
+                                        Ksh <%= Number(p.estimated_premium || 0).toLocaleString() %>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-soft-stage stage-<%= (p.stage || 'lead').toLowerCase() %>">
+                                            <%= p.stage %>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            <%= p.product_type || '-' %>
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="/bdo/prospects/edit/corporate/<%= p.id %>" class="btn btn-sm btn-outline-secondary me-1">Edit</a>
+                                        <a href="/bdo/convert?prospectId=<%= p.id %>&type=Corporate" class="btn btn-sm btn-primary">Convert</a>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="9" class="text-center py-4 text-muted">No corporate prospects found.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 2. RETAIL / INDIVIDUAL PROSPECTS TABLE     -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-success">
+                <i class="bi bi-person-badge me-2"></i>Retail & Individual Prospects
+            </h5>
+            <span class="badge bg-success rounded-pill">
+                <%= retailProspects.length %> Records
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Full Name</th>
+                            <th>National ID</th>
+                            <th>Phone & Email</th>
+                            <th>Date of Birth</th>
+                            <th>Est. Premium</th>
+                            <th>Stage</th>
+                            <th>Product Type</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (retailProspects && retailProspects.length > 0) { %>
+                            <% retailProspects.forEach(p => { %>
+                                <tr>
+                                    <td class="fw-bold text-dark"><%= p.first_name %> <%= p.last_name %></td>
+                                    <td><%= p.national_id || '-' %></td>
+                                    <td>
+                                        <div><%= p.phone %></div>
+                                        <small class="text-muted"><%= p.email %></small>
+                                    </td>
+                                    <td>
+                                        <%= p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString() : '-' %>
+                                    </td>
+                                    <td class="fw-semibold">
+                                        Ksh <%= Number(p.estimated_premium || 0).toLocaleString() %>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-soft-stage stage-<%= (p.stage || 'lead').toLowerCase() %>">
+                                            <%= p.stage %>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            <%= p.product_type || '-' %>
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="/bdo/prospects/edit/retail/<%= p.id %>" class="btn btn-sm btn-outline-secondary me-1">Edit</a>
+                                        <a href="/bdo/convert?prospectId=<%= p.id %>&type=Retail" class="btn btn-sm btn-success">Convert</a>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">No retail prospects found.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- CSS Styling for Stage Badges -->
+        <style>
+            .bg-soft-stage {
+                padding: 6px 10px;
+                font-weight: 500;
+            }
+            .stage-lead { background-color: #fef3c7; color: #92400e; }
+            .stage-contacted { background-color: #e0f2fe; color: #075985; }
+            .stage-proposal { background-color: #e0e7ff; color: #3730a3; }
+            .stage-negotiation { background-color: #fce7f3; color: #9d174d; }
+            .stage-won { background-color: #dcfce7; color: #166534; }
+                        </style>
 
     </div>
 
