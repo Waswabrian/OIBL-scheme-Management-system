@@ -190,6 +190,23 @@
                                 value="<%= prospect.follow_up_date ? new Date(prospect.follow_up_date).toISOString().split('T')[0] : '' %>">
                         </div>
                     </div>
+                <div class="row g-4 mt-3">
+                    <label for="premium-type" class="form-label fw-semibold text-secondary small">
+                        PREMIUM TYPE
+                    </label>
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-currency-dollar"></i></span>
+                            <select id="premium-type" name="premium_type" class="form-select">
+                                <option value="Annual" <%= prospect.premium_type === 'Annual' ? 'selected' : '' %>>
+                                    Annual
+                                </option>
+                                <option value="Monthly" <%= prospect.premium_type === 'Monthly' ? 'selected' : '' %>>
+                                    Monthly
+                                </option>
+                            </select>
+                        </div>
+                    </div>
 
                     <!-- location   -->
                     <div class="col-md-6">

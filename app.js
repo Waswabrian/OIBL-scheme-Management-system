@@ -6,6 +6,8 @@ const ExcelJS = require("exceljs");
 const db = require("./config/db");
 const pool = require('./config/db');
 const { validateAllocationRequest } = require('./utils/allocationValidation');
+const { validateSchemeInput, normalizeSchemeStatus } = require('./utils/schemeValidation');
+const { sendAppEmail } = require('./utils/emailNotifications');
 
 const app = express();
 const PORT =  process.env.PORT || 3001;
@@ -118,19 +120,29 @@ const ensureSchemeSchema = async () => {
 
 const ensureActivitySchema = async () => {
   try {
-    await db.query(
-  "INSERT INTO app_activity_log (user_id, user_name, action, description) VALUES (?, ?, ?, ?)",
-  [entry.user_id, entry.user_name, entry.title, entry.detail]
-);
-    
-    // Add user_name column if it doesn't exist (for backward compatibility)
-    try {
-      await db.query(
-        `ALTER TABLE app_activity_log ADD COLUMN user_name VARCHAR(150) NULL`
-      );
-    } catch (altErr) {
-      if (!altErr.message.includes('already exists') && !altErr.message.includes('Duplicate')) {
-        // Column likely already exists, ignore
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS app_activity_log (
+        activity_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NULL,
+        user_name VARCHAR(150) NULL,
+        title VARCHAR(200) NULL,
+        detail TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    for (const columnDefinition of [
+      "ALTER TABLE app_activity_log ADD COLUMN IF NOT EXISTS user_name VARCHAR(150) NULL",
+      "ALTER TABLE app_activity_log ADD COLUMN IF NOT EXISTS title VARCHAR(200) NULL",
+      "ALTER TABLE app_activity_log ADD COLUMN IF NOT EXISTS detail TEXT NULL",
+      "ALTER TABLE app_activity_log ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    ]) {
+      try {
+        await db.query(columnDefinition);
+      } catch (altErr) {
+        if (!altErr.message.includes('already exists') && !altErr.message.includes('Duplicate')) {
+          console.warn('[db] activity column check:', altErr.message);
+        }
       }
     }
   } catch (err) {
@@ -337,6 +349,17 @@ const resolveAssignedStaffId = async (assignedTo) => {
   return rows[0]?.staff_id || null;
 };
 
+const resolveAssignedStaff = async (assignedTo) => {
+  const value = typeof assignedTo === "string" ? assignedTo.trim() : assignedTo;
+  if (!value) return null;
+
+  const [rows] = await db.query(
+    "SELECT staff_id, full_name, email FROM staff WHERE staff_id = ? OR full_name = ? OR email = ? LIMIT 1",
+    [value, value, value]
+  );
+  return rows[0] || null;
+};
+
 const recordActivity = async ({ userId, userName, title, detail }) => {
   const entry = {
     activity_id: Date.now(),
@@ -361,6 +384,32 @@ const recordActivity = async ({ userId, userName, title, detail }) => {
 
   memoryActivities.unshift(entry);
   return entry;
+};
+
+const notifyUserByEmail = async ({ to, subject, text, html }) => {
+  if (!to) {
+    return { sent: false, reason: 'Missing recipient' };
+  }
+
+  const targetEmails = (Array.isArray(to) ? to : [to]).filter(Boolean);
+  if (!targetEmails.length) {
+    return { sent: false, reason: 'Missing recipient' };
+  }
+
+  const result = await sendAppEmail({
+    to: targetEmails,
+    subject,
+    text,
+    html
+  });
+
+  if (result.sent) {
+    console.log(`[mail] Sent: ${subject} -> ${targetEmails.join(', ')}`);
+  } else {
+    console.warn(`[mail] Failed to send: ${subject} -> ${targetEmails.join(', ')} (${result.reason})`);
+  }
+
+  return result;
 };
 
 const getRecentActivities = async ({ userId, audience } = {}) => {
@@ -464,6 +513,12 @@ app.post("/login", redirectIfLoggedIn, async (req, res) => {
   role: user.role
 };
 
+await notifyUserByEmail({
+  to: user.email,
+  subject: 'Successful login alert',
+  text: `Hi ${user.full_name},\n\nWe detected a successful login to the OIBL Schemes system at ${new Date().toLocaleString()}. If this was not you, please contact the administrator immediately.`
+});
+
 console.log(
   "LOGIN ROLE:",
   req.session.user.role
@@ -522,6 +577,12 @@ app.post("/signup", redirectIfLoggedIn, async (req, res) => {
       userName: newUser.full_name,
       title: "New account created",
       detail: `${newUser.full_name} created a new account.`
+    });
+
+    await notifyUserByEmail({
+      to: newUser.email,
+      subject: 'Welcome to OIBL Schemes',
+      text: `Hi ${newUser.full_name},\n\nYour account has been created successfully. You can now log in to the OIBL Schemes system and start managing your work.\n\nEmail: ${newUser.email}`
     });
 
     return res.redirect(getDashboardRoute(req.session.user.role));
@@ -833,6 +894,12 @@ const [schemes] = await db.query(`
 });
 
 app.post('/admin/schemes/add', requireAuth, async (req, res) => {
+    const schemeValidation = validateSchemeInput(req.body);
+
+    if (!schemeValidation.valid) {
+      return res.status(400).send(schemeValidation.error);
+    }
+
     const {
         scheme_name,
         insurer,
@@ -840,35 +907,45 @@ app.post('/admin/schemes/add', requireAuth, async (req, res) => {
         premium,
         inception_date,
         assigned_to,
-        stage
-    } = req.body;
+        status
+    } = schemeValidation.data;
 
     try {
-      const assignedStaffId = await resolveAssignedStaffId(assigned_to);
-        const [result] = await db.query(
-            `INSERT INTO schemes
-            (scheme_name, stage, insurer, policy_type, premium, inception_date, assigned_to, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                scheme_name,
-                stage || 'New',
-                insurer,
-                policy_type,
-                premium,
-                inception_date,
-                assignedStaffId,
-                req.session.user?.id || null
-            ]
-        );
+      const assignedStaff = await resolveAssignedStaff(assigned_to);
+      const assignedStaffName = assignedStaff ? assignedStaff.full_name : (assigned_to || null);
 
-        await recordActivity({
-          userId: req.session.user?.id || null,
-          userName: req.session.user?.full_name || 'Admin',
-          title: "Scheme created",
-          detail: `${scheme_name} was uploaded and saved by ${req.session.user?.full_name || 'the administrator'}.`
+      const [result] = await db.query(
+          `INSERT INTO schemes
+          (scheme_name, status, insurer, policy_type, premium, inception_date, assigned_to, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+              scheme_name,
+              normalizeSchemeStatus(status),
+              insurer,
+              policy_type,
+              premium,
+              inception_date || null,
+              assignedStaffName,
+              req.session.user?.id || null
+          ]
+      );
+
+      await recordActivity({
+        userId: req.session.user?.id || null,
+        userName: req.session.user?.full_name || 'Admin',
+        title: "Scheme created",
+        detail: `${scheme_name} was uploaded and saved by ${req.session.user?.full_name || 'the administrator'}.`
+      });
+
+      if (req.session.user?.email) {
+        await notifyUserByEmail({
+          to: req.session.user.email,
+          subject: 'Scheme created successfully',
+          text: `Hi ${req.session.user.full_name},\n\nScheme "${scheme_name}" was created successfully in the OIBL Schemes system.`
         });
+      }
 
-        res.redirect('/admin/schemes/add-schemes');
+      res.redirect('/admin/schemes/add-schemes');
     } catch (err) {
         console.error('[db] add scheme failed:', err.message);
         res.status(500).send('Unable to save scheme.');
@@ -912,20 +989,29 @@ app.post('/admin/schemes/edit/:id', requireAuth, async (req, res) => {
     return res.status(400).send('Invalid scheme ID.');
   }
 
-  const { scheme_name, insurer, policy_type, premium, inception_date, status } = req.body;
+  const validation = validateSchemeInput(req.body);
+  if (!validation.valid) {
+    return res.status(400).send(validation.error);
+  }
+
+  const { scheme_name, insurer, policy_type, premium, inception_date, status, assigned_to } = validation.data;
 
   try {
+    const assignedStaff = await resolveAssignedStaff(assigned_to);
+    const assignedStaffName = assignedStaff ? assignedStaff.full_name : (assigned_to || null);
+
     const [result] = await db.query(
       `UPDATE schemes
-       SET scheme_name = ?, insurer = ?, policy_type = ?, premium = ?, inception_date = ?, status = ?
+       SET scheme_name = ?, insurer = ?, policy_type = ?, premium = ?, inception_date = ?, status = ?, assigned_to = ?
        WHERE scheme_id = ?`,
       [
         scheme_name,
         insurer || null,
         policy_type || null,
-        premium === '' ? null : premium,
+        premium === null ? null : premium,
         inception_date || null,
-        status || 'Draft',
+        normalizeSchemeStatus(status),
+        assignedStaffName,
         schemeId
       ]
     );
@@ -937,6 +1023,12 @@ app.post('/admin/schemes/edit/:id', requireAuth, async (req, res) => {
       userName: req.session.user.full_name,
       title: 'Scheme updated',
       detail: `${scheme_name} was updated by ${req.session.user.full_name}.`
+    });
+
+    await notifyUserByEmail({
+      to: req.session.user.email,
+      subject: 'Scheme updated',
+      text: `Hi ${req.session.user.full_name},\n\nScheme "${scheme_name}" was updated in the OIBL Schemes system.`
     });
 
     res.redirect('/admin/schemes/add-schemes');
@@ -971,6 +1063,12 @@ app.get('/admin/schemes/delete/:id', requireAuth, async (req, res) => {
       userName: req.session.user.full_name,
       title: 'Scheme deleted',
       detail: `${rows[0].scheme_name} was deleted by ${req.session.user.full_name}.`
+    });
+
+    await notifyUserByEmail({
+      to: req.session.user.email,
+      subject: 'Scheme deleted',
+      text: `Hi ${req.session.user.full_name},\n\nScheme "${rows[0].scheme_name}" was deleted from the OIBL Schemes system.`
     });
 
     res.redirect('/admin/schemes/add-schemes');
@@ -1121,13 +1219,19 @@ app.post("/staff/schemes/:id/update", requireAuth, async (req, res) => {
     detail: `${scheme.scheme_name} was updated by ${req.session.user.full_name}.`
   });
 
+  await notifyUserByEmail({
+    to: req.session.user.email,
+    subject: 'Staff scheme update',
+    text: `Hi ${req.session.user.full_name},\n\nYour update for scheme "${scheme.scheme_name}" has been saved successfully.`
+  });
+
   res.redirect("/staff/schemes");
 });
 
 
 app.post("/admin/allocations", requireAuth, async (req, res) => {
-  if (normalizeRole(req.session.user.role) !== "Staff") {
-    return res.redirect("/admin-dashboard");
+  if (normalizeRole(req.session.user.role) === "Staff") {
+    return res.redirect("/staff-dashboard");
   }
 
   const {
@@ -1371,6 +1475,14 @@ app.post('/admin/schemes/allocations', requireAuth, async (req, res) => {
       title: 'Schemes allocated',
       detail: `${uniqueSchemeIds.length} scheme(s) allocated to ${staff.full_name}.`
     });
+
+    if (staff.email) {
+      await notifyUserByEmail({
+        to: staff.email,
+        subject: 'New scheme allocation',
+        text: `Hi ${staff.full_name},\n\nYou have been assigned ${uniqueSchemeIds.length} new scheme(s) in the OIBL Schemes system. Please review them in your dashboard.`
+      });
+    }
 
     res.redirect('/admin/schemes/allocations');
 
@@ -1851,10 +1963,15 @@ app.get('/bdo/prospects', requireAuth, async (req, res) => {
       return res.redirect(getDashboardRoute(req.session.user.role));
     }
 
+
 const [prospects] = await db.query(`
-    SELECT * FROM prospects 
-    WHERE stage != 'Won' 
-    ORDER BY created_at DESC
+    SELECT 
+        p.*, 
+        u.full_name AS bdo_name 
+    FROM prospects p
+    LEFT JOIN staff u ON u.staff_id = p.created_by
+    WHERE p.stage != 'Won' OR p.stage IS NULL
+    ORDER BY p.created_at DESC
 `);
 
     const [pipeline] = await db.query(`SELECT SUM(estimated_premium) AS total_premium FROM prospects WHERE created_by = ?
@@ -2094,54 +2211,95 @@ app.post('/bdo/prospects/delete/:id', requireAuth, async (req, res) => {
 });
 
 
-app.post('/bdo/schemes/create/:prospectId', requireAuth, async (req, res) => {
+app.get('/bdo/schemes/create/:prospectId', requireAuth, async (req, res) => {
+    if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
+        return res.redirect(getDashboardRoute(req.session.user.role));
+    }
+
     try {
-        const prospectId = req.params.prospectId;
+        const prospectId = Number.parseInt(req.params.prospectId, 10);
+        if (!Number.isInteger(prospectId)) {
+            return res.status(400).send('Invalid prospect ID.');
+        }
 
         const [prospectRows] = await db.query(
-            `SELECT * FROM prospects WHERE prospect_id = ?`,
+            `SELECT * FROM prospects WHERE prospect_id = ? LIMIT 1`,
             [prospectId]
         );
 
         if (!prospectRows.length) {
-            return res.status(404).send('Prospect not found');
+            return res.status(404).send('Prospect not found.');
         }
 
         const prospect = prospectRows[0];
+        const [existingSchemes] = await db.query(
+            `SELECT scheme_id FROM schemes WHERE created_by = ? AND scheme_name = ? LIMIT 1`,
+            [req.session.user.id, prospect.company_name || `Scheme-${prospectId}`]
+        );
 
+        if (existingSchemes.length > 0) {
+            return res.redirect('/bdo/schemes?error=exists');
+        }
+
+        res.render('BDO/create_scheme', {
+            title: `Convert ${prospect.company_name} to Scheme`,
+            prospect,
+            prospectId,
+            user: req.session.user
+        });
+
+    } catch (error) {
+        console.error('[GET /bdo/schemes/create/:prospectId Error]:', error);
+        res.status(500).send('Error loading scheme creation form');
+    }
+});
+
+app.post('/bdo/schemes/create/:prospectId', requireAuth, async (req, res) => {
+    try {
+        const prospectId = Number.parseInt(req.params.prospectId, 10);
+        if (!Number.isInteger(prospectId)) {
+            return res.status(400).send('Invalid prospect ID.');
+        }
+
+        const [prospectRows] = await db.query(
+            `SELECT * FROM prospects WHERE prospect_id = ? AND created_by = ? LIMIT 1`,
+            [prospectId, req.session.user.id]
+        );
+
+        if (!prospectRows.length) {
+            return res.status(404).send('Prospect not found or not assigned to you.');
+        }
+
+        const prospect = prospectRows[0];
         const [existing] = await db.query(
-            `SELECT scheme_id FROM schemes WHERE prospect_id = ?`,
-            [prospectId]
+            `SELECT scheme_id FROM schemes WHERE created_by = ? AND scheme_name = ? LIMIT 1`,
+            [req.session.user.id, prospect.company_name || `Scheme-${prospectId}`]
         );
 
         if (existing.length) {
             return res.redirect('/bdo/schemes?error=exists');
         }
 
+        const schemeName = String(req.body.scheme_name || `${prospect.company_name || 'Scheme'} - ${prospectId}`).trim();
+        const productType = String(req.body.policy_type || req.body.product_type || 'Medical Insurance').trim();
+        const premiumValue = req.body.premium === '' || req.body.premium === undefined || req.body.premium === null
+            ? Number(prospect.estimated_premium || 0)
+            : Number(req.body.premium);
+        const status = normalizeSchemeStatus(req.body.status || 'New');
+
         await db.query(
             `INSERT INTO schemes
-            (
-                prospect_id,
-                company_name,
-                contact_person,
-                phone,
-                email,
-                product_type,
-                stage,
-                created_by,
-                premium
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (scheme_name, status, insurer, policy_type, premium, inception_date, assigned_to, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                prospectId,
-                prospect.company_name,
-                prospect.contact_person,
-                prospect.phone,
-                prospect.email,
-                'Medical Insurance',
-                'Active',
-                req.session.user.id,
-                prospect.estimated_premium || 0
+                schemeName,
+                status,
+                req.body.insurer || null,
+                productType,
+                Number.isFinite(premiumValue) ? premiumValue : 0,
+                req.body.inception_date || null,
+                req.session.user.full_name,
+                req.session.user.id
             ]
         );
 
@@ -2154,7 +2312,7 @@ app.post('/bdo/schemes/create/:prospectId', requireAuth, async (req, res) => {
             userId: req.session.user.id,
             userName: req.session.user.full_name,
             title: 'Scheme Created',
-            detail: `Converted prospect ${prospect.company_name} into a scheme`
+            detail: `Converted prospect ${prospect.company_name} into scheme ${schemeName}`
         });
 
         res.redirect('/bdo/schemes?success=created');
@@ -2162,58 +2320,6 @@ app.post('/bdo/schemes/create/:prospectId', requireAuth, async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).send('Error creating scheme');
-    }
-});
-
-app.get('/bdo/schemes/create/:prospectId', requireAuth, async (req, res) => {
-    if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
-      return res.redirect(getDashboardRoute(req.session.user.role));
-    }
-    try {
-
-        const [prospectRows] = await db.query(
-            `SELECT * FROM prospects WHERE prospect_id = ?`,
-            [req.params.prospectId]
-        );
-        const prospect = prospectRows[0];
-        const [existing] = await db.query(
-          `SELECT scheme_id FROM schemes WHERE company_name = ?`,
-          [prospect.company_name]
-      );
-
-        await db.query(
-          `INSERT INTO schemes (company_name, contact_person, phone, email, product_type, stage, created_by,premium)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            prospectRows[0].company_name,
-            prospectRows[0].contact_person,
-            prospectRows[0].phone,
-            prospectRows[0].email,
-            'Medical Insurance',
-            prospectRows[0].stage,
-            req.session.user.id,
-            prospectRows[0].premium || 0
-          ]
-        );
-      
-      if (existing.length) {
-          return res.redirect('/bdo/schemes?error=exists');
-      }
-        await recordActivity({
-            userId: req.session.user.id,
-            userName: req.session.user.full_name,
-            title: "Conversion page accessed",
-            detail: `Accessed conversion page for prospect ${prospectRows[0].company_name}.`
-        });
-
-        res.render('BDO/convert', {
-            prospectId: req.params.prospectId,
-            prospects: prospectRows[0],
-            user: req.session.user
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Error loading conversion page');
     }
 });
 
@@ -2229,6 +2335,7 @@ app.get('/bdo/schemes', requireAuth, async (req, res) => {
     WHERE LOWER(stage) = 'won'
     AND created_by = ?
 `, [req.session.user.id]);
+    const prospectId = req.query.prospectId || null;
 
     const [schemes] = await db.query(`
         SELECT *
@@ -2260,6 +2367,7 @@ console.log(premium[0].totalPremium);
 
     res.render('BDO/schemes', {
         schemes,
+        prospectId,
         stats,
         user: req.session.user,
         search,
@@ -2553,78 +2661,7 @@ app.post('/bdo/convert/submit', requireAuth, async (req, res) => {
     }
 });
 
-module.exports = router;
-
-
-app.post('/bdo/schemes/store', requireAuth, async (req, res) => {
-  if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
-    return res.redirect(getDashboardRoute(req.session.user.role));
-  }
-  
-  const { prospect_id, company_name, product_type, premium, remarks } = req.body;
-  const prospectId = req.params.prospectId;
-
-  if (!prospect_id) {
-    return res.status(400).send("Prospect ID is required.");
-  }
-
-  try {
-    // 1. Fetch prospect details to ensure it exists
-    const [prospectRows] = await db.query(
-      "SELECT * FROM prospects WHERE prospect_id = ? LIMIT 1",
-      [prospect_id]
-    );
-
-    if (!prospectRows.length) {
-      return res.status(404).send("Prospect not found.");
-    }
-   
-    const prospect = prospectRows[0];
-     const schemeName = (company_name || prospect.company_name).trim();
-    
-    const [existingSchemes] = await db.query(
-      'SELECT scheme_id FROM schemes WHERE LOWER(scheme_name) = LOWER(?) LIMIT 1',
-      [schemeName]
-    );
-
-    if (existingSchemes.length > 0) {
-      // Return early with a clear message or re-render the view with an error
-      return res.status(400).send(`A scheme named "${schemeName}" already exists.`);
-    }
-    // 2. Update the prospect status to 'Won' and append conversion notes
-    await db.query(
-      `UPDATE prospects 
-       SET stage = 'Won', remarks = ? 
-       WHERE prospect_id = ?`,
-      [remarks || null, prospect_id]
-    );
-
-    // 3. Convert the prospect into an official scheme record
-    const [schemeResult] = await db.query(
-      `INSERT INTO schemes 
-       (scheme_name, status, policy_type, premium, created_by)
-       VALUES (?, 'New', ?, ?, ?)`,
-      [
-        company_name || prospect.company_name,
-        product_type || prospect.product_type || null,
-        premium || prospect.estimated_premium || null,
-        req.session.user.id
-      ]
-    );
-
-    await recordActivity({
-      userId: req.session.user.id,
-      userName: req.session.user.full_name,
-      title: "Prospect Converted",
-      detail: `${prospect.company_name || 'Prospect #' + prospect_id} was successfully converted into a scheme.`
-    });
-
-    res.redirect("/bdo-dashboard");
-  } catch (err) {
-    console.error("[POST /bdo/schemes/store Error]:", err);
-    res.status(500).send("Unable to convert prospect. Please try again.");
-  }
-});
+// app.module.exports = router;
 
 
 app.get('/bdo/schemes/update/:id', requireAuth, async (req, res) => {
@@ -2654,50 +2691,45 @@ app.get('/bdo/schemes/update/:id', requireAuth, async (req, res) => {
     }
 });
 
-
 app.post('/bdo/schemes/update/:id', requireAuth, async (req, res) => {
-
     if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
         return res.redirect(getDashboardRoute(req.session.user.role));
     }
 
     try {
+        const schemeName = String(req.body.scheme_name || '').trim();
+        if (!schemeName) {
+            return res.status(400).send('Scheme name is required.');
+        }
 
-       await db.query(
-`
-UPDATE schemes
-SET
-    scheme_name = ?,
-    company_name = ?,
-    insurer = ?,
-    policy_type = ?,
-    premium = ?,
-    description = ?,
-    contact_person = ?,
-    phone = ?,
-    stage = ?,
-    email = ?
-WHERE scheme_id = ?
-`,
-[
-    req.body.scheme_name,
-    req.body.company_name,
-    req.body.insurer,
-    req.body.policy_type,
-    req.body.estimated_premium,
-    req.body.description,
-    req.body.contact_person,
-    req.body.phone,
-    req.body.stage,
-    req.body.email,
-    req.params.id
-]
-);
+        const insurer = String(req.body.insurer || '').trim() || null;
+        const policyType = String(req.body.policy_type || '').trim() || null;
+        const premiumValue = req.body.premium === '' || req.body.premium === null || req.body.premium === undefined
+            ? null
+            : Number(req.body.premium);
+        const status = normalizeSchemeStatus(req.body.status || 'Draft');
+
+        await db.query(
+            `UPDATE schemes
+             SET scheme_name = ?, insurer = ?, policy_type = ?, premium = ?, status = ?, inception_date = ?, assigned_to = ?
+             WHERE scheme_id = ?`,
+            [
+                schemeName,
+                insurer,
+                policyType,
+                Number.isFinite(premiumValue) ? premiumValue : null,
+                status,
+                req.body.inception_date || null,
+                req.body.assigned_to || req.session.user.full_name,
+                req.params.id
+            ]
+        );
+
         await recordActivity({
             userId: req.session.user.id,
             userName: req.session.user.full_name,
             title: "Scheme Updated",
-            detail: `Scheme ${req.body.scheme_name} was updated by ${req.session.user.full_name}.`
+            detail: `Scheme ${schemeName} was updated by ${req.session.user.full_name}.`
         });
 
         res.redirect('/bdo/schemes');
@@ -2710,30 +2742,31 @@ WHERE scheme_id = ?
 
 app.put('/bdo/prospects/edit/:id', requireAuth, async (req, res) => {
     try {
-              await db.query(`
-    UPDATE prospects
-    SET
-        contact_person = ?,
-        company_name = ?,
-        email = ?,
-        phone = ?,
-        location = ?,
-        estimated_premium = ?,
-        follow_up_date = ?,
-        stage = ?
-    WHERE prospect_id = ? AND created_by =?`
-,[
-    req.body.contact_person,
-    req.body.company_name,
-    req.body.email,
-    req.body.phone,
-    req.body.location,
-    req.body.estimated_premium,
-    req.body.follow_up_date,
-    req.body.stage,
-    req.params.id,
-    req.session.user.id
-]);
+        await db.query(`
+            UPDATE prospects
+            SET
+                contact_person = ?,
+                company_name = ?,
+                email = ?,
+                phone = ?,
+                location = ?,
+                estimated_premium = ?,
+                follow_up_date = ?,
+                stage = ?
+            WHERE prospect_id = ? AND created_by = ?`,
+            [
+                req.body.contact_person,
+                req.body.company_name,
+                req.body.email,
+                req.body.phone,
+                req.body.location,
+                req.body.estimated_premium,
+                req.body.follow_up_date,
+                req.body.stage,
+                req.params.id,
+                req.session.user.id
+            ]
+        );
 
         res.redirect('/bdo/prospects');
     } catch (err) {
@@ -2742,59 +2775,62 @@ app.put('/bdo/prospects/edit/:id', requireAuth, async (req, res) => {
     }
 });
 
-
 app.post('/bdo/schemes/store', requireAuth, async (req, res) => {
     if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
-      return res.redirect(getDashboardRoute(req.session.user.role));
+        return res.redirect(getDashboardRoute(req.session.user.role));
     }
 
     try {
-      await db.query(
-`
-INSERT INTO schemes (
-    scheme_name,
-    company_name,
-    insurer,
-    policy_type,
-    premium,
-    description,
-    contact_person,
-    phone,
-    email,
-    stage,
-    created_by
-)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`,
-[
-    req.body.scheme_name,
-    req.body.company_name,
-    req.body.insurer,
-    req.body.policy_type,
-    req.body.estimated_premium,
-    req.body.description,
-    req.body.contact_person,
-    req.body.phone,
-    req.body.email,
-    req.body.stage,
-    req.session.user.id
-]
-);
-  await recordActivity({
+        const schemeName = String(req.body.scheme_name || '').trim();
+        if (!schemeName) {
+            return res.status(400).send('Scheme name is required.');
+        }
+
+        const premiumValue = req.body.premium === '' || req.body.premium === undefined || req.body.premium === null
+            ? null
+            : Number(req.body.premium);
+
+        await db.query(
+            `INSERT INTO schemes (
+                scheme_name,
+                status,
+                insurer,
+                policy_type,
+                premium,
+                created_by,
+                assigned_to
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+                schemeName,
+                normalizeSchemeStatus(req.body.status || 'New'),
+                req.body.insurer || null,
+                req.body.policy_type || null,
+                Number.isFinite(premiumValue) ? premiumValue : null,
+                req.session.user.id,
+                req.body.assigned_to || req.session.user.full_name
+            ]
+        );
+
+        await recordActivity({
             userId: req.session.user.id,
             userName: req.session.user.full_name,
             title: "Scheme created from prospect",
-            detail: `${req.body.scheme_name} was created from a prospect by ${req.session.user.full_name}.`
+            detail: `${schemeName} was created from a prospect by ${req.session.user.full_name}.`
         });
+
+        await notifyUserByEmail({
+            to: req.session.user.email,
+            subject: 'Scheme created from prospect',
+            text: `Hi ${req.session.user.full_name},\n\nA new scheme titled "${schemeName}" was created from a prospect in the OIBL Schemes system.`
+        });
+
+        res.redirect('/bdo/schemes');
     } catch (err) {
         console.error('[activity] failed to record BDO scheme creation:', err.message);
+        res.status(500).send('Unable to create scheme from prospect.');
     }
-
-    res.redirect('/bdo/schemes');
 });
 
- 
-  
 app.get("/super-admin-dashboard",  requireSuperAdmin,
   async (req, res) => {
 
@@ -3024,14 +3060,33 @@ async (req, res) => {
 
 //bdo schemes
 app.get('/schemes', async (req, res) => {
+    // const Scheme = require('./models/Scheme');
 
-    const schemes = await Scheme.findAll({
-        order: [['createdAt', 'DESC']]
-    });
+    const [schemes] = await pool.query(
+            'SELECT * FROM schemes ORDER BY created_at DESC'
+        );
+
+    const prospectId = req.query.prospectId || null;
+      const search = (req.query.search || '').trim();
+
+        let sql = 'SELECT * FROM schemes';
+        const params = [];
+
+        if (search) {
+            sql += ` WHERE scheme_name LIKE ?
+                     OR company_name LIKE ?
+                     OR status LIKE ?`;
+            const term = `%${search}%`;
+            params.push(term, term, term);
+        }
+
+        sql += ' ORDER BY created_at DESC';
+
 
     res.render('bdo/schemes', {
         schemes,
-
+        search,
+        prospectId,
         stats: {
             total: 125,
             submitted: 78,

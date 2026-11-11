@@ -57,6 +57,11 @@
                             <label for="inception_date">Inception Date</label>
                             <input id="inception_date" type="date" name="inception_date" value="<%= scheme.inception_date ? new Date(scheme.inception_date).toISOString().slice(0, 10) : '' %>">
                         </div>
+
+                        <div class="form-group">
+                            <label for="assigned_to">Assigned To</label>
+                            <input id="assigned_to" type="text" name="assigned_to" value="<%= scheme.assigned_to || '' %>" placeholder="Staff name or ID">
+                        </div>
                     </div>
 
                     <button type="submit" class="btn-primary">Save Changes</button>

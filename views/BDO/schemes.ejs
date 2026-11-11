@@ -199,12 +199,15 @@
                 <h2>Business Applications</h2>
                 <p>Manage all business submissions and approval progress</p>
             </div>
-            <a
-                href="/bdo/schemes/new"
-                class="btn btn-success">
-                <i class="bi bi-plus-lg"></i>
-                New Business
-            </a>
+            <% if (typeof prospectId !== 'undefined' && prospectId) { %>
+                <a href="/bdo/schemes/create/<%= prospectId %>" class="btn btn-success">
+                    <i class="bi bi-plus-lg"></i> New Business
+                </a>
+                <% } else { %>
+                <a href="/bdo/prospects" class="btn btn-success">
+                    <i class="bi bi-plus-lg"></i> New Business
+                </a>
+                <% } %>
 
         </div>
 

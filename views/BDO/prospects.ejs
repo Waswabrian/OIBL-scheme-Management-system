@@ -344,7 +344,7 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table style="width:fit-content;" class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>Company Name</th>
@@ -382,11 +382,23 @@
                                         <span class="badge bg-light text-dark border">
                                             <%= p.product_type || '-' %>
                                         </span>
-                                    </td>
-                                    <td class="text-end">
-                                        <a href="/bdo/prospects/edit/corporate/<%= p.id %>" class="btn btn-sm btn-outline-secondary me-1">Edit</a>
-                                        <a href="/bdo/convert?prospectId=<%= p.id %>&type=Corporate" class="btn btn-sm btn-primary">Convert</a>
-                                    </td>
+                        <td class="text-end">
+    <!-- Edit Icon Button -->
+    <a href="/bdo/prospects/edit/<%= p.prospect_id || p.id %>" 
+       class="btn btn-sm btn-outline-secondary me-1" 
+       title="Edit Prospect"
+       data-bs-toggle="tooltip">
+        <i class="bi bi-pencil-square"></i>
+    </a>
+
+    <!-- Convert Icon Button -->
+    <a href="/bdo/convert?prospectId=<%= p.prospect_id || p.id %>&type=Corporate" 
+       class="btn btn-sm btn-primary" 
+       title="Convert to Scheme"
+       data-bs-toggle="tooltip">
+        <i class="bi bi-arrow-right-circle-fill me-1"></i> Convert
+    </a>
+</td>
                                 </tr>
                             <% }); %>
                         <% } else { %>
@@ -453,10 +465,23 @@
                                             <%= p.product_type || '-' %>
                                         </span>
                                     </td>
-                                    <td class="text-end">
-                                        <a href="/bdo/prospects/edit/retail/<%= p.id %>" class="btn btn-sm btn-outline-secondary me-1">Edit</a>
-                                        <a href="/bdo/convert?prospectId=<%= p.id %>&type=Retail" class="btn btn-sm btn-success">Convert</a>
-                                    </td>
+                            <td class="text-end">
+    <!-- Edit Icon Button -->
+    <a href="/bdo/prospects/edit/<%= p.prospect_id || p.id %>" 
+       class="btn btn-sm btn-outline-secondary me-1" 
+       title="Edit Prospect"
+       data-bs-toggle="tooltip">
+        <i class="bi bi-pencil-square"></i>
+    </a>
+
+    <!-- Convert Icon Button -->
+    <a href="/bdo/convert?prospectId=<%= p.prospect_id || p.id %>&type=Corporate" 
+       class="btn btn-sm btn-primary" 
+       title="Convert to Scheme"
+       data-bs-toggle="tooltip">
+        <i class="bi bi-arrow-right-circle-fill me-1"></i> Convert
+    </a>
+</td>
                                 </tr>
                             <% }); %>
                         <% } else { %>
