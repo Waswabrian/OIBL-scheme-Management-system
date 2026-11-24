@@ -93,10 +93,11 @@
                 <div class="form-group">
                     <label>Status</label>
                     <select name="status">
-                        <option value="Draft">Draft</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
+                        <option value="Onboarding">Onboarding</option>
+                        <option value="Pending_Renewal">Pending Renewal</option>
+                        <option value="Renewed">Renewed</option>
+                        <option value="Active">Active</option>
+                        <option value="Lost">Lost</option>
                     </select>
                 </div>
 
@@ -180,8 +181,8 @@
             : '-' %>
         </td>
         <td>
-          <span class="status <%= (scheme.status || 'draft').toLowerCase() %>">
-            <%= scheme.status || 'Draft' %>
+          <span class="status <%= (scheme.status || 'Onboarding').toLowerCase() %>">
+            <%= scheme.status || 'Onboarding' %>
           </span>
         </td>
         <td>

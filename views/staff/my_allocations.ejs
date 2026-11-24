@@ -30,10 +30,11 @@
       th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #e6edf7; }
       th { color: #123d6b; background: #f5f8fd; }
       .status { display: inline-block; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-      .status.pending { background: #fff3cd; color: #8a6d00; }
-      .status.approved { background: #dff7e8; color: #1f7a45; }
-      .status.rejected { background: #fde4e4; color: #b42318; }
-      .status.draft { background: #e8edf6; color: #475467; }
+      .status.pending_renewal { background: #ecd417; color: #8a6d00; }
+      .status.active { background: #4ae877; color: #1e3a8a; }
+      .status.renewed { background: #48e8e0; color: #1f7a45; }
+      .status.lost { background: #e03131; color: #b42318; }
+      .status.onboarding { background: #e8edf6; color: #475467; }
       .btn { display: inline-block; background: #f7941d; color: #fff; text-decoration: none; border-radius: 8px; padding: 10px 14px; font-weight: 600; }
       @media (max-width: 900px) { .page-wrap { grid-template-columns: 1fr; } .cards { grid-template-columns: 1fr; } }
     </style>
@@ -85,7 +86,7 @@
                     <td><%= allocation.scheme_name %></td>
                     <td><%= allocation.insurer %></td>
                     <td><%= allocation.policy_type %></td>
-                    <td><span class="status <%= (allocation.status || 'draft').toLowerCase() %>"><%= allocation.status || 'Draft' %></span></td>
+                    <td><span class="scheme.status <%= (allocation.status || 'onboarding').toLowerCase() %>"><%= allocation.status || 'Onboarding' %></span></td>
                     <td><%= allocation.inception_date || '—' %></td>
                     <td><a class="btn" href="/staff/schemes/<%= allocation.scheme_id %>/edit">Update</a></td>
                   </tr>

@@ -72,6 +72,7 @@
         .stats-card{
             color:#fff;
         }
+        
 
         .stats-card .card-body{
             padding:25px;
@@ -151,7 +152,7 @@
             font-weight:600;
         }
 
-        .badge-draft{
+        .badge-Onboarding{
             background:#e2e8f0;
             color:#475569;
         }
@@ -180,6 +181,11 @@
             background:#111827;
             color:#fff;
         }
+        .status-badge badge-onboarding{
+            background:#e2e8f0;
+            color:#475569;
+        }
+        
 
     </style>
 
@@ -270,8 +276,7 @@ KES <%= Number(stats.pipelineValue || 0).toLocaleString() %>
 
                 </a>
 
-                <form  action="/bdo/schemes %>"
-                    method="GET">
+                <form action="/bdo/schemes" method="GET">
 
                     <div class="row g-3">
 
@@ -290,12 +295,11 @@ KES <%= Number(stats.pipelineValue || 0).toLocaleString() %>
                                 class="form-select">
 
                                 <option value="">All Statuses</option>
-                                <option value="Draft">Draft</option>
-                                <option value="Submitted">Submitted</option>
-                                <option value="Under Review">Under Review</option>
-                                <option value="Approved">Approved</option>
-                                <option value="Rejected">Rejected</option>
-                                <option value="Activated">Activated</option>
+                                <option value="Onboarding">Onboarding</option>
+                                <option value="Pending_Renewal">Pending_Renewal</option>
+                                <option value="Renewed">Renewed</option>
+                                <option value="Lost">Lost</option>
+                                <option value="Active">Active</option>
 
                             </select>
                         </div>
@@ -344,13 +348,13 @@ KES <%= Number(stats.pipelineValue || 0).toLocaleString() %>
                         <tr>
                             <th>Scheme No</th>
                             <th>Scheme Name</th>
-                            <th>Client</th>
+                            <!-- <th>Client</th> -->
                             <th>Product</th>
                             <th>Premium</th>
                             <th>Status</th>
-                            <th>Reviewer</th>
-                            <th>Created</th>
-                            <th>Action</th>
+                            <th>Allocations</th>
+                            <th>Updated On </th>
+                            <!-- <th>Action</th> -->
                         </tr>
                         </thead>
 
@@ -370,84 +374,50 @@ KES <%= Number(stats.pipelineValue || 0).toLocaleString() %>
                                         <%= scheme.scheme_name %>
                                     </td>
 
-                                    <td>
+                                    <!-- <td>
                                         <%= scheme.company_name %>
-                                    </td>
+                                    </td> -->
 
                                     <td>
-                                        <%= scheme.product_type || '' %>
+                                        <%= scheme.policy_type || '' %>
                                     </td>
 
                                     <td >
-                                        KES <%= Number(scheme.estimated_premium || 0).toLocaleString() %>
+                                        KES <%= Number(scheme.premium || 0).toLocaleString() %>
                                     </td>
 
                                     <td>
-
-                                        <% if(scheme.status === 'Draft'){ %>
-                                            <span class="status-badge badge-draft">Draft</span>
+                                        <% if (scheme.status === 'Onboarding') { %>
+                                            <span class="status-badge badge-onboarding">Onboarding</span>
+                                        <% } else if (scheme.status === 'Pending_Renewal') { %>
+                                            <span class="status-badge badge-submitted">Pending Renewal</span>
+                                        <% } else if (scheme.status === 'Renewed') { %>
+                                            <span class="status-badge badge-approved">Renewed</span>
+                                        <% } else if (scheme.status === 'Won') { %>
+                                            <span class="status-badge badge-approved">Won</span>
+                                        <% } else if (scheme.status === 'Lost') { %>
+                                            <span class="status-badge badge-rejected">Lost</span>
+                                        <% } else { %>
+                                            <span class="status-badge badge-Onboarding"><%= scheme.status || 'Onboarding' %></span>
                                         <% } %>
-
-                                        <% if(scheme.status === 'Submitted'){ %>
-                                            <span class="status-badge badge-submitted">Submitted</span>
-                                        <% } %>
-
-                                        <% if(scheme.status === 'Under Review'){ %>
-                                            <span class="status-badge badge-review">Under Review</span>
-                                        <% } %>
-
-                                        <% if(scheme.status === 'Approved'){ %>
-                                            <span class="status-badge badge-approved">Approved</span>
-                                        <% } %>
-
-                                        <% if(scheme.status === 'Rejected'){ %>
-                                            <span class="status-badge badge-rejected">Rejected</span>
-                                        <% } %>
-
-                                        <% if(scheme.status === 'Activated'){ %>
-                                            <span class="status-badge badge-activated">Activated</span>
-                                        <% } %>
-
                                     </td>
 
                                     <td>
-                                        <%= scheme.reviewer || 'Not Assigned' %>
+                                        <%= scheme.assigned_to || 'Not Assigned' %>
                                     </td>
 
                                     <td>
-                                        <%= scheme.created_date ? new Date(scheme.created_date).toLocaleDateString() : 'N/A' %>
+                                        <%= scheme.inception_date ? new Date(scheme.inception_date).toLocaleDateString() : 'N/A' %>
                                     </td>
 
                                     <td>
-
                                         <div class="d-flex gap-2">
-                                            <!-- <a
-                                                href="/bdo/schemes/<%= scheme.id %>"
-                                                class="btn btn-sm btn-outline-primary">
-                                                View
-                                            </a> -->
-
-                                            <% if(
-                                                scheme.status === 'Draft' ||
-                                                scheme.status === 'Rejected'
-                                            ){ %>
-                                                   
-                                                <a
-                                                href="/bdo/schemes/update/<%= scheme.scheme_id %>"
-                                                class="btn btn-sm btn-outline-warning">
+                                            <% if (scheme.status === 'Onboarding' || scheme.status === 'Rejected') { %>
+                                                <a href="/bdo/schemes/update/<%= scheme.scheme_id %>" class="btn btn-sm btn-outline-warning">
                                                     Edit
                                                 </a>
-
                                             <% } %>
-
-                                            <% if(scheme.status === 'Draft'){ %>
-
-                                               
-
-                                            <% } %>
-
                                         </div>
-
                                     </td>
 
                                 </tr>

@@ -2,7 +2,6 @@ const assert = require('assert');
 const { getMailConfig, sendAppEmail } = require('../utils/emailNotifications');
 
 const config = getMailConfig();
-assert.ok(config !== null, 'Mail configuration should be available in the runtime environment');
 
 (async () => {
   const result = await sendAppEmail({

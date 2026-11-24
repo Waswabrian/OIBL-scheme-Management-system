@@ -1,71 +1,371 @@
-<div class="container py-4">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roles & Permissions</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --primary: #123d6b;
+            --primary-soft: #eaf2ff;
+            --accent: #f7941d;
+            --sidebar: #0f172a;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --card-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+        }
 
-<h2>Roles & Permissions</h2>
+        body {
+            margin: 0;
+            background: #f4f7fb;
+            color: var(--text);
+            font-family: "Segoe UI", sans-serif;
+        }
 
-<div class="card shadow-sm">
+        .sidebar {
+            background: var(--sidebar);
+            min-height: 100vh;
+            padding: 1rem 0;
+            width: 260px;
+            position: sticky;
+            top: 0;
+        }
 
-<div class="card-body">
+        .sidebar .brand {
+            display: flex;
+            justify-content: center;
+            padding: 1rem 1.25rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
 
-<table class="table table-bordered">
+        .sidebar .brand img {
+            width: 150px;
+        }
 
-<thead>
-<tr>
-<th>Permission</th>
-<th>Super Admin</th>
-<th>Admin</th>
-<th>BDO</th>
-<th>Staff</th>
-</tr>
-</thead>
+        .sidebar nav a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0.85rem 1.25rem;
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            transition: 0.2s ease;
+            font-weight: 500;
+        }
 
-<tbody>
+        .sidebar nav a:hover,
+        .sidebar nav a.active {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
 
-<tr>
-<td>Create Users</td>
-<td>✅</td>
-<td>❌</td>
-<td>❌</td>
-<td>❌</td>
-</tr>
+        .main-panel {
+            flex: 1;
+            min-width: 0;
+        }
 
-<tr>
-<td>Approve Schemes</td>
-<td>✅</td>
-<td>✅</td>
-<td>❌</td>
-<td>❌</td>
-</tr>
+        .topbar {
+            background: linear-gradient(90deg, var(--primary) 0%, #1b4d82 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--card-shadow);
+        }
 
-<tr>
-<td>Allocate Schemes</td>
-<td>✅</td>
-<td>✅</td>
-<td>❌</td>
-<td>❌</td>
-</tr>
+        .topbar h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
 
-<tr>
-<td>Create Prospects</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>❌</td>
-</tr>
+        .user-pill {
+            background: rgba(255,255,255,0.12);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.18);
+            padding: 0.55rem 0.9rem;
+            border-radius: 999px;
+            font-weight: 600;
+        }
 
-<tr>
-<td>Update Allocated Schemes</td>
-<td>✅</td>
-<td>✅</td>
-<td>❌</td>
-<td>✅</td>
-</tr>
+        .content-wrap {
+            padding: 2rem;
+        }
 
-</tbody>
+        .page-header {
+            margin-bottom: 1.5rem;
+        }
 
-</table>
+        .page-header h3 {
+            margin: 0;
+            font-weight: 700;
+            color: var(--primary);
+        }
 
-</div>
+        .page-header p {
+            margin: 0.25rem 0 0;
+            color: var(--muted);
+        }
 
-</div>
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
 
-</div>
+        .summary-card {
+            background: white;
+            border: 1px solid rgba(17, 24, 39, 0.06);
+            border-radius: 14px;
+            padding: 1.2rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .summary-card .label {
+            color: var(--muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04rem;
+        }
+
+        .summary-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 0.35rem;
+        }
+
+        .card-custom {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid rgba(17, 24, 39, 0.06);
+            box-shadow: var(--card-shadow);
+        }
+
+        .card-custom .card-header {
+            background: var(--primary-soft);
+            color: var(--primary);
+            border-bottom: 1px solid rgba(18, 61, 107, 0.08);
+            padding: 1rem 1.25rem;
+            font-weight: 700;
+        }
+
+        .card-custom .card-body {
+            padding: 1.25rem;
+        }
+
+        .permission-table {
+            width: 100%;
+            margin: 0;
+            border-collapse: collapse;
+        }
+
+        .permission-table th,
+        .permission-table td {
+            padding: 0.9rem 0.85rem;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+
+        .permission-table thead th {
+            background: #f8fafc;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .permission-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
+            height: 30px;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+
+        .permission-badge.allow {
+            background: rgba(22, 163, 74, 0.12);
+            color: var(--success);
+        }
+
+        .permission-badge.deny {
+            background: rgba(220, 38, 38, 0.10);
+            color: var(--danger);
+        }
+
+        .role-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.4rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.04rem;
+            text-transform: uppercase;
+        }
+
+        .chip-super { background: #dbeafe; color: #1d4ed8; }
+        .chip-admin { background: #dcfce7; color: #166534; }
+        .chip-bdo { background: #fef3c7; color: #b45309; }
+        .chip-staff { background: #e2e8f0; color: #475569; }
+
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                min-height: auto;
+                position: relative;
+            }
+
+            .main-panel {
+                width: 100%;
+            }
+
+            .content-wrap {
+                padding: 1rem;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="d-flex flex-column flex-md-row">
+        <aside class="sidebar">
+            <div class="brand">
+                <img src="/images/OCTAGON-LOGO.png" alt="OIBL Logo">
+            </div>
+
+            <nav>
+                <a href="/super-admin-dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                <a href="/super-admin/users"><i class="bi bi-people-fill"></i> Users</a>
+                <a href="/super-admin/roles" class="active"><i class="bi bi-shield-lock-fill"></i> Roles</a>
+                <a href="/super-admin/audit"><i class="bi bi-journal-text"></i> Audit Logs</a>
+                <a href="/super-admin/settings"><i class="bi bi-gear-fill"></i> Settings</a>
+                <a href="/logout"><i class="bi bi-box-arrow-right"></i> Logout</a>
+            </nav>
+        </aside>
+
+        <main class="main-panel">
+            <div class="topbar">
+                <h2>Roles & Permissions</h2>
+                <span class="user-pill">Welcome, <%= user.full_name %></span>
+            </div>
+
+            <div class="content-wrap">
+                <div class="page-header">
+                    <h3>Access Matrix</h3>
+                    <p>Manage how each role interacts with users, schemes, allocations, and reporting.</p>
+                </div>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="label">Roles</div>
+                        <div class="value">4</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="label">Admin Controls</div>
+                        <div class="value">8</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="label">BDO Access</div>
+                        <div class="value">3</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="label">Staff Access</div>
+                        <div class="value">2</div>
+                    </div>
+                </div>
+
+                <div class="card-custom mb-4">
+                    <div class="card-header">Permission Matrix</div>
+                    <div class="card-body">
+                        <table class="permission-table">
+                            <thead>
+                                <tr>
+                                    <th>Permission</th>
+                                    <th><span class="role-chip chip-super">Super Admin</span></th>
+                                    <th><span class="role-chip chip-admin">Admin</span></th>
+                                    <th><span class="role-chip chip-bdo">BDO</span></th>
+                                    <th><span class="role-chip chip-staff">Staff</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Create Users</td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Approve Schemes</td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Allocate Schemes</td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Create Prospects</td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Update Allocated Schemes</td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Generate Reports</td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge allow">✓</span></td>
+                                    <td><span class="permission-badge deny">✕</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card-custom">
+                    <div class="card-header">Quick Actions</div>
+                    <div class="card-body">
+                        <div class="quick-actions">
+                            <a href="/super-admin-dashboard" class="btn btn-primary">Back to Dashboard</a>
+                            <a href="/super-admin/users" class="btn btn-outline-primary">Manage Users</a>
+                            <a href="/super-admin/settings" class="btn btn-outline-secondary">System Settings</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

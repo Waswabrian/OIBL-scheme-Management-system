@@ -15,10 +15,10 @@ require("dotenv").config();
 const mysql = require("mysql2/promise");
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "oibl_schemes",
+  host: process.env.DB_HOST || process.env.HOST || "localhost",
+  user: process.env.DB_USER || process.env.USER || "root",
+  password: process.env.DB_PASSWORD || process.env.PASSWORD || "",
+  database: process.env.DB_NAME || process.env.DATABASE || "oibl_schemes",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0

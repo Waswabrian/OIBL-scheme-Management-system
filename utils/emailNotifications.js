@@ -2,14 +2,14 @@ require('dotenv').config();
 const nodemailer = require('nodemailer');
 
 const getMailConfig = () => {
-  const host = process.env.SMTP_HOST || 'smtp.mailtrap.io';
-  const port = Number(process.env.SMTP_PORT || 2525);
+  const host = String(process.env.SMTP_HOST || '').trim();
+  const port = Number(process.env.SMTP_PORT || 587);
   const secure = String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true';
-  const user = process.env.SMTP_USER || 'demo@oibl.local';
-  const pass = process.env.SMTP_PASS || 'demo-password';
-  const from = process.env.MAIL_FROM || process.env.DEFAULT_ADMIN_EMAIL || user;
+  const user = String(process.env.SMTP_USER || '').trim();
+  const pass = String(process.env.SMTP_PASS || '').trim();
+  const from = String(process.env.MAIL_FROM || user).trim();
 
-  if (!host || !Number.isFinite(port)) {
+  if (!host || !Number.isFinite(port) || !user || !pass || !from) {
     return null;
   }
 
@@ -17,28 +17,41 @@ const getMailConfig = () => {
     host,
     port,
     secure,
-    auth: user && pass ? { user, pass } : undefined,
-    from
+    auth: { user, pass },
+    from,
+    tls: secure ? undefined : { ciphers: 'TLSv1.2' }
   };
 };
 
 const sendAppEmail = async ({ to, subject, text, html }) => {
-  if (!to) {
-    return { sent: false, reason: 'Missing recipient' };
-  }
+  if (!to) return { sent: false, reason: 'Missing recipient' };
+
+  const recipients = (Array.isArray(to) ? to : [to])
+    .map((address) => String(address || '').trim())
+    .filter(Boolean);
+
+  if (!recipients.length) return { sent: false, reason: 'Missing recipient' };
 
   const config = getMailConfig();
   if (!config) {
-    return { sent: false, reason: 'SMTP configuration missing' };
+    return { sent: false, reason: 'SMTP is not configured' };
   }
 
   try {
-    const transporter = nodemailer.createTransport(config);
-    const normalizedTo = Array.isArray(to) ? to.filter(Boolean).join(', ') : to;
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: config.auth,
+      tls: config.tls
+    });
+
+    await transporter.verify();
+
     const info = await transporter.sendMail({
       from: config.from,
-      to: normalizedTo,
-      subject: subject || 'OIBL Scheme Update',
+      to: recipients.join(', '),
+      subject: subject || 'OIBL Schemes Notification',
       text: text || '',
       html: html || undefined
     });
@@ -46,14 +59,11 @@ const sendAppEmail = async ({ to, subject, text, html }) => {
     return {
       sent: true,
       messageId: info.messageId,
-      accepted: info.accepted || [normalizedTo]
+      accepted: info.accepted || recipients
     };
   } catch (error) {
     console.error('[mail] sendAppEmail failed:', error.message);
-    return {
-      sent: false,
-      reason: error.message
-    };
+    return { sent: false, reason: error.message };
   }
 };
 

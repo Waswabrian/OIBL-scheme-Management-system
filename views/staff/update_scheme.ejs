@@ -25,6 +25,12 @@
       .btn-primary { background: #f7941d; color: #fff; border: none; cursor: pointer; }
       .btn-secondary { background: #e8edf6; color: #123d6b; }
       @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } }
+      .scheme.status { display: inline-block; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; text-transform: capitalize; }
+      .status.onboarding { background: #e8edf6; color: #475467; }
+      .status.pending_renewal { background: #eeea1f; color: #78350f; }
+      .status.renewed { background: #5eb2f3; color: #1e3a8a; }
+      .status.lost { background: #ea1111; color: #100909; }
+      .status.active { background: #4ae877; color: #1e3a8a; } 
     </style>
     <link rel="stylesheet" href="/styles.css" />
   </head>
@@ -58,10 +64,11 @@
             <div class="field">
               <label>Status</label>
               <select name="status">
-                <option value="Draft" <%= scheme.status === 'Draft' ? 'selected' : '' %>>Draft</option>
-                <option value="Pending" <%= scheme.status === 'Pending' ? 'selected' : '' %>>Pending</option>
-                <option value="Approved" <%= scheme.status === 'Approved' ? 'selected' : '' %>>Approved</option>
-                <option value="Rejected" <%= scheme.status === 'Rejected' ? 'selected' : '' %>>Rejected</option>
+                <option value="onboarding" <%= scheme.status === 'onboarding' ? 'selected' : '' %>>Onboarding</option>
+                <option value="pending_renewal" <%= scheme.status === 'pending_renewal' ? 'selected' : '' %>>Pending Renewal</option>
+                <option value="lost" <%= scheme.status === 'lost' ? 'selected' : '' %>>Lost</option>
+                <option value="renewed" <%= scheme.status === 'renewed' ? 'selected' : '' %>>Renewed</option>
+                <option value="active" <%= scheme.status === 'active' ? 'selected' : '' %>>Active</option>
               </select>
             </div>
 
@@ -71,7 +78,7 @@
             </div>
 
             <div class="field full">
-              <label>Inception Date</label>
+              <label>Update Date</label>
               <input type="date" name="inception_date" value="<%= scheme.inception_date || '' %>" />
             </div>
           </div>

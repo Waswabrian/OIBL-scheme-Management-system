@@ -102,7 +102,7 @@
             text-align:left;
         }
 
-        .status-active{
+                .status-active{
             color:green;
             font-weight:bold;
         }
@@ -110,6 +110,34 @@
         .status-inactive{
             color:red;
             font-weight:bold;
+        }
+
+        .status-badge{
+            display:inline-block;
+            padding:6px 10px;
+            border-radius:999px;
+            font-size:12px;
+            font-weight:600;
+        }
+
+        .badge-onboarding{
+            background:#e2e8f0;
+            color:#475569;
+        }
+
+        .badge-submitted{
+            background:#fef3c7;
+            color:#b45309;
+        }
+
+        .badge-approved{
+            background:#dcfce7;
+            color:#166534;
+        }
+
+        .badge-rejected{
+            background:#fee2e2;
+            color:#b91c1c;
         }
 
     </style>
@@ -201,21 +229,21 @@
                     <td><%= scheme.scheme_name %></td>
 
                     <td>
-
                         <% if (scheme.status === 'Active') { %>
-
-                            <span class="status-active">
-                                Active
-                            </span>
-
+                            <span class="status-active">Active</span>
+                        <% } else if (scheme.status === 'Onboarding') { %>
+                            <span class="status-badge badge-onboarding">Onboarding</span>
+                        <% } else if (scheme.status === 'Pending_Renewal') { %>
+                            <span class="status-badge badge-submitted">Pending Renewal</span>
+                        <% } else if (scheme.status === 'Renewed') { %>
+                            <span class="status-badge badge-approved">Renewed</span>
+                        <% } else if (scheme.status === 'Won') { %>
+                            <span class="status-badge badge-approved">Won</span>
+                        <% } else if (scheme.status === 'Lost') { %>
+                            <span class="status-badge badge-rejected">Lost</span>
                         <% } else { %>
-
-                            <span class="status-inactive">
-                                Inactive
-                            </span>
-
+                            <span class="status-inactive"><%= scheme.status || 'Inactive' %></span>
                         <% } %>
-
                     </td>
 
                     <td>

@@ -14,6 +14,8 @@
 
 body{
     background:#f4f7fc;
+    font-family:'Segoe UI',sans-serif;
+    color: #1e40af;
 }
 
 .page-wrapper{
@@ -163,9 +165,29 @@ tbody tr{
     font-weight:600;
 }
 
-.won{
+.badge.won,
+.badge.approved,
+.badge.active {
     background:#dcfce7;
     color:#166534;
+}
+
+.badge.pending,
+.badge.under-review {
+    background:#fef3c7;
+    color:#b45309;
+}
+
+.badge.rejected,
+.badge.lost {
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
+.badge.draft,
+.badge.onboarding {
+    background:#e2e8f0;
+    color:#475569;
 }
 
 </style>
@@ -225,24 +247,24 @@ tbody tr{
 
         <div class="report-grid">
 
-            <a href="/bdo/reports/schemes">
+            <a class="report-card" href="/bdo/reports/schemes">
                 <i class="bi bi-file-earmark-bar-graph"></i>
                 <h3>Scheme Report</h3>
                 <p>View all scheme performance reports.</p>
             </a>
-            <a href="/bdo/reports/prospects">
+            <a class="report-card" href="/bdo/reports/prospects">
                 <i class="bi bi-person-lines-fill"></i>
                 <h3>Prospects Report</h3>
                 <p>Track prospect pipeline and conversion.</p>
             </a>
 
-            <a href="/bdo/reports/followups">
+            <a class="report-card" href="/bdo/reports/followups">
                 <i class="bi bi-calendar-check"></i>
                 <h3>Follow Ups</h3>
                 <p>All follow up activities and schedules.</p>
             </a>
 
-            <a href="/bdo/reports/export-excel">
+            <a class="report-card" href="/bdo/reports/export-excel">
                 <i class="bi bi-file-earmark-excel"></i>
                 <h3>Excel Export</h3>
                 <p>Download complete BDO reports.</p>
@@ -282,21 +304,13 @@ tbody tr{
                     </td>
 
                     <td>
-
-                        <% if(String(scheme.stage).toLowerCase() === 'won'){ %>
-
-                            <span class="badge won">
-                                Won
-                            </span>
-
-                        <% } else { %>
-
-                            <span class="badge">
-                                <%= scheme.stage || 'Open' %>
-                            </span>
-
-                        <% } %>
-
+                        <%
+                            const statusLabel = String(scheme.stage || 'Open');
+                            const statusClass = statusLabel.toLowerCase().replace(/\s+/g, '-');
+                        %>
+                        <span class="badge <%= statusClass %>">
+                            <%= statusLabel %>
+                        </span>
                     </td>
 
                     <td>

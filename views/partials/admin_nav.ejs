@@ -6,8 +6,107 @@
 
     <div class="nav-actions">
       <span class="role-badge role-admin">Admin</span>
-      <span class="welcome-text">Hello, <%= typeof user !== 'undefined' && user ? user.full_name : 'Admin' %></span>
+      <span class="welcome-text">Hello, <%= typeof user !== 'undefined' && user && user.full_name ? user.full_name : 'Admin' %></span>
       <a class="btn btn-secondary" href="/logout">Logout</a>
     </div>
   </div>
+
+  <style>
+    .topbar {
+      background: linear-gradient(135deg, rgba(140, 194, 227, 0.92), rgba(184, 215, 237, 0.9));
+      border-bottom: 1px solid rgba(13, 72, 127, 0.12);
+      box-shadow: 0 8px 24px rgba(15, 63, 111, 0.08);
+      padding: 12px 0;
+      width: 100%;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 72px;
+    }
+
+    .brand img {
+      display: block;
+      height: 58px;
+      width: auto;
+      max-width: 280px;
+      filter: drop-shadow(0 4px 8px rgba(11, 74, 155, 0.08));
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(13, 76, 141, 0.08);
+      color: #0d4c8d;
+      border: 1px solid rgba(13, 76, 141, 0.12);
+    }
+
+    .role-admin {
+      background: rgba(245, 158, 11, 0.12);
+      color: #a25a00;
+      border-color: rgba(245, 158, 11, 0.2);
+    }
+
+    .welcome-text {
+      font-size: 1.06rem;
+      font-weight: 600;
+      color: #17324b;
+      white-space: nowrap;
+    }
+
+    .btn.btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(13, 76, 141, 0.16);
+      background: rgba(255, 255, 255, 0.42);
+      color: #17324b;
+      padding: 8px 16px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .btn.btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.75);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(16, 69, 122, 0.08);
+    }
+
+    @media (max-width: 768px) {
+      .nav {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 8px 0;
+      }
+
+      .nav-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .welcome-text {
+        white-space: normal;
+      }
+    }
+  </style>
 </header>

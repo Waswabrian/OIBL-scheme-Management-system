@@ -127,9 +127,11 @@
         font-weight: 700;
       }
       .status.action { background: #fff3cd; color: #8a6d00; }
-      .status.won { background: #dff7e8; color: #1f7a45; }
-      .status.lost { background: #fde4e4; color: #b42318; }
-      .status.draft { background: #e8edf6; color: #475467; }
+      .status.lost { background: #ea1111; color: #100909; }
+      .status.Onboarding { background: #e8edf6; color: #475467; }
+      .status.Pending_Renewal { background: #eeea1f; color: #78350f; }
+      .status.Renewed { background: #5eb2f3; color: #1e3a8a; }
+      .status.Active { background: #4ae877; color: #1e3a8a; }
       .btn {
         display: inline-block;
         background: #f7941d;
@@ -161,12 +163,12 @@
               <strong><%= schemes.length %></strong>
             </div>
             <div class="stat-box">
-              <span>Pending</span>
-              <strong><%= schemes.filter(s => s.status === 'Pending').length %></strong>
+              <span>Pending Renewal</span>
+              <strong><%= schemes.filter(s => s.status === 'Pending_Renewal').length %></strong>
             </div>
             <div class="stat-box">
-              <span>Approved</span>
-              <strong><%= schemes.filter(s => s.status === 'Approved').length %></strong>
+              <span>Active</span>
+              <strong><%= schemes.filter(s => s.status === 'Active').length %></strong>
             </div>
           </div>
         </div>
@@ -198,7 +200,7 @@
                     <td><%= scheme.premium ? `KES ${Number(scheme.premium).toLocaleString()}` : '—' %></td>
                     <td><%= scheme.inception_date || '—' %></td>
                     <td><%= scheme.start_date || scheme.end_date ? `${scheme.start_date || '—'} to ${scheme.end_date || '—'}` : '—' %></td>
-                    <td><span class="status <%= (scheme.status || 'draft').toLowerCase().replace(/\s+/g, '-') %>"><%= scheme.status || 'Draft' %></span></td>
+                    <td><span class="status <%= (scheme.status || 'onboarding').toLowerCase().replace(/\s+/g, '-') %>"><%= scheme.status || 'Onboarding' %></span></td>
                     <td><%= scheme.allocated_at ? new Date(scheme.allocated_at).toLocaleDateString() : '—' %></td>
                     <td><a class="btn" href="/staff/schemes/<%= scheme.scheme_id %>/edit">Update</a></td>
                   </tr>

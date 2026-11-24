@@ -8,6 +8,7 @@ const pool = require('./config/db');
 const { validateAllocationRequest } = require('./utils/allocationValidation');
 const { validateSchemeInput, normalizeSchemeStatus } = require('./utils/schemeValidation');
 const { sendAppEmail } = require('./utils/emailNotifications');
+const { generateTemporaryPassword, getResetPasswordRequired, passwordMeetsPolicy } = require('./utils/passwordManagement');
 
 const app = express();
 const PORT =  process.env.PORT || 3001;
@@ -76,6 +77,12 @@ const ensureStaffSchema = async () => {
       "ALTER TABLE staff ADD COLUMN IF NOT EXISTS password VARCHAR(255) NOT NULL DEFAULT ''"
     );
     await db.query(
+      "ALTER TABLE staff ADD COLUMN IF NOT EXISTS password_reset_required BOOLEAN NOT NULL DEFAULT FALSE"
+    );
+    await db.query(
+      "ALTER TABLE staff ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP NULL"
+    );
+    await db.query(
       "ALTER TABLE staff MODIFY COLUMN role ENUM('Super Admin','Admin','Business Development Officer','Staff') DEFAULT 'Staff'"
     );
     await db.query(
@@ -95,7 +102,7 @@ const ensureSchemeSchema = async () => {
       `CREATE TABLE IF NOT EXISTS schemes (
         scheme_id INT AUTO_INCREMENT PRIMARY KEY,
         scheme_name VARCHAR(150) NOT NULL,
-        status ENUM('Draft','Pending','Approved','Rejected') DEFAULT 'Draft',
+        status ENUM('Onboarding','Pending_Renewal','Renewed','Active','Lost') DEFAULT 'Onboarding',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`
     );
@@ -110,7 +117,7 @@ const ensureSchemeSchema = async () => {
     await db.query("ALTER TABLE schemes ADD COLUMN IF NOT EXISTS end_date DATE NULL");
     await db.query("ALTER TABLE schemes ADD COLUMN IF NOT EXISTS budget DECIMAL(12,2) NULL");
     await db.query(
-      "ALTER TABLE schemes MODIFY COLUMN status ENUM('New','In Progress','Renewed','Expired','Pending Feedback','Lost Business','Draft','Pending','Approved','Rejected') DEFAULT 'Draft'"
+      "ALTER TABLE schemes MODIFY COLUMN status ENUM('Onboarding','Pending_Renewal','Renewed','Active','Lost') DEFAULT 'Onboarding'"
     );
 
   } catch (err) {
@@ -147,6 +154,30 @@ const ensureActivitySchema = async () => {
     }
   } catch (err) {
     console.error("[db] activity schema check failed:", err.message);
+  }
+};
+
+const ensureSystemSettingsSchema = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        company_name VARCHAR(150) NULL,
+        system_email VARCHAR(150) NULL,
+        password_length INT DEFAULT 8,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    const [rows] = await db.query('SELECT * FROM system_settings ORDER BY created_at DESC LIMIT 1');
+    if (!rows.length) {
+      await db.query(
+        'INSERT INTO system_settings (company_name, system_email, password_length) VALUES (?, ?, ?)',
+        ['OIBL Schemes', 'admin@oibl.com', 8]
+      );
+    }
+  } catch (err) {
+    console.error('[db] system settings schema check failed:', err.message);
   }
 };
 
@@ -202,10 +233,11 @@ const initDb = async () => {
     await ensureStaffSchema();
     await ensureSchemeSchema();
     await ensureActivitySchema();
+    await ensureSystemSettingsSchema();
     await ensureAllocationSchema();
     dbReady = true;
     await ensureDefaultAdminUser();
-    console.log("[db] Connected. Staff and scheme tables ready.");
+    console.log("[db] Connected. Staff, scheme, and system tables ready.");
   } catch (err) {
     dbReady = false;
     console.error("[db] Unavailable, falling back to in-memory storage:", err.message);
@@ -246,6 +278,29 @@ const saveUser = async (user) => {
   const newUser = { id: memoryUsers.length + 1, ...safeUser };
   memoryUsers.push(newUser);
   return newUser;
+};
+
+const updateUserPassword = async ({ staffId, password, forceReset = false }) => {
+  if (!staffId || !password) return false;
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  if (dbReady) {
+    const [result] = await db.query(
+      'UPDATE staff SET password = ?, password_reset_required = ?, password_changed_at = NOW() WHERE staff_id = ?',
+      [hashedPassword, forceReset ? 1 : 0, staffId]
+    );
+
+    return Number(result?.affectedRows || 0) > 0;
+  }
+
+  const memoryUser = memoryUsers.find((u) => String(u.id) === String(staffId));
+  if (!memoryUser) return false;
+
+  memoryUser.password = hashedPassword;
+  memoryUser.password_reset_required = forceReset ? 1 : 0;
+  memoryUser.password_changed_at = new Date();
+  return true;
 };
 
 const getAssignedSchemeCount = async (userId) => {
@@ -472,71 +527,181 @@ app.get("/login", redirectIfLoggedIn, (req, res) => {
   });
 });
 
+app.get("/forgot-password", (req, res) => {
+  res.render("auth/forgot-password", {
+    error: req.query.error || "",
+    success: req.query.success || ""
+  });
+});
+
+app.post("/forgot-password", async (req, res) => {
+  const normalizedEmail = String(req.body?.email || '').trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return res.redirect("/forgot-password?error=Please+enter+your+email");
+  }
+
+  try {
+    const user = await getUserByEmail(normalizedEmail);
+
+    if (user) {
+      const minimumLength = await getSystemPasswordLength();
+      const temporaryPassword = generateTemporaryPassword(Math.max(12, minimumLength));
+
+      const passwordUpdated = await updateUserPassword({
+        staffId: user.staff_id,
+        password: temporaryPassword,
+        forceReset: true
+      });
+
+      if (!passwordUpdated) {
+        throw new Error('Unable to persist the temporary password');
+      }
+
+      await recordActivity({
+        userId: user.staff_id,
+        userName: user.full_name,
+        title: 'Password reset requested',
+        detail: `A password reset was issued for ${user.email}.`
+      });
+
+      const mailResult = await notifyUserByEmail({
+        to: user.email,
+        subject: 'Temporary password for OIBL Schemes',
+        text: `Hello ${user.full_name},\n\nA password reset was requested for your account.\n\nTemporary password: ${temporaryPassword}\n\nSign in with this temporary password. You will be required to create a new password before continuing.\n\nIf you did not request this reset, contact the system administrator immediately.`,
+        html: `<p>Hello ${user.full_name},</p><p>A password reset was requested for your account.</p><p><strong>Temporary password:</strong> ${temporaryPassword}</p><p>Sign in with this temporary password. You will be required to create a new password before continuing.</p><p>If you did not request this reset, contact the system administrator immediately.</p>`
+      });
+
+      if (!mailResult.sent) {
+        console.warn('[forgot-password] Email delivery failed:', mailResult.reason);
+        return res.redirect("/forgot-password?error=Password+was+reset+but+email+delivery+is+not+configured");
+      }
+    }
+
+    return res.redirect("/login?success=If+that+account+exists,+a+temporary+password+has+been+sent");
+  } catch (err) {
+    console.error('[forgot-password]', err);
+    return res.redirect("/forgot-password?error=Unable+to+reset+password");
+  }
+});
+
+app.get("/change-password", requireAuth, (req, res) => {
+  res.render("auth/change-password", {
+    error: req.query.error || "",
+    success: req.query.success || "",
+    forced: req.query.forced === '1' || req.query.forced === 'true',
+    user: req.session.user
+  });
+});
+
+app.post("/change-password", requireAuth, async (req, res) => {
+  const { current_password, new_password, confirm_password } = req.body || {};
+
+  try {
+    const user = await getUserByEmail(req.session.user.email);
+    if (!user) {
+      return res.redirect("/login?error=Session+expired");
+    }
+
+    const forcedReset = getResetPasswordRequired(user.password_reset_required);
+    const [settingsRows] = await db.query('SELECT password_length FROM system_settings ORDER BY created_at DESC LIMIT 1');
+    const minimumLength = Number(settingsRows?.[0]?.password_length || 8);
+
+    if (!forcedReset) {
+      const matchesCurrent = await bcrypt.compare(current_password || '', user.password).catch(() => false);
+      if (!matchesCurrent) {
+        return res.redirect("/change-password?error=Current+password+is+incorrect");
+      }
+    }
+
+    if (!new_password || !confirm_password) {
+      return res.redirect("/change-password?error=Please+enter+a+new+password");
+    }
+
+    if (new_password.length < minimumLength) {
+      return res.redirect(`/change-password?error=Password+must+be+at+least+${minimumLength}+characters`);
+    }
+
+    if (!passwordMeetsPolicy(new_password, minimumLength)) {
+      return res.redirect("/change-password?error=Password+must+include+letters+and+numbers");
+    }
+
+    if (new_password !== confirm_password) {
+      return res.redirect("/change-password?error=New+passwords+do+not+match");
+    }
+
+    const passwordUpdated = await updateUserPassword({
+      staffId: user.staff_id,
+      password: new_password,
+      forceReset: false
+    });
+
+    if (!passwordUpdated) {
+      return res.redirect("/change-password?error=Unable+to+update+password");
+    }
+
+    await recordActivity({
+      userId: user.staff_id,
+      userName: user.full_name,
+      title: 'Password changed',
+      detail: `${user.full_name} updated their password.`
+    });
+
+    req.session.user = {
+      ...req.session.user,
+      full_name: user.full_name,
+      email: user.email,
+      role: user.role
+    };
+
+    return res.redirect(getDashboardRoute(user.role));
+  } catch (err) {
+    console.error('[change-password]', err);
+    return res.redirect("/change-password?error=Unable+to+change+password");
+  }
+});
+
 app.post("/login", redirectIfLoggedIn, async (req, res) => {
 
   const { email, password } = req.body;
 
   try {
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
-
-    const user = await getUserByEmail(
-      normalizedEmail
-    );
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const user = await getUserByEmail(normalizedEmail);
 
     if (!user) {
-
-      return res.redirect(
-        "/login?error=Invalid+email+or+password"
-      );
+      return res.redirect("/login?error=Invalid+email+or+password");
     }
 
-    const passwordMatch =
-      await bcrypt.compare(
-        password,
-        user.password
-      ).catch(() => false);
-
+    const passwordMatch = await bcrypt.compare(String(password || ''), user.password).catch(() => false);
     if (!passwordMatch) {
-
-      return res.redirect(
-        "/login?error=Invalid+email+or+password"
-      );
+      return res.redirect("/login?error=Invalid+email+or+password");
     }
 
     req.session.user = {
-  id: user.staff_id,
-  full_name: user.full_name,
-  email: user.email,
-  role: user.role
-};
+      id: user.staff_id,
+      full_name: user.full_name,
+      email: user.email,
+      role: user.role
+    };
 
-await notifyUserByEmail({
-  to: user.email,
-  subject: 'Successful login alert',
-  text: `Hi ${user.full_name},\n\nWe detected a successful login to the OIBL Schemes system at ${new Date().toLocaleString()}. If this was not you, please contact the administrator immediately.`
-});
+    await notifyUserByEmail({
+      to: user.email,
+      subject: 'Successful login alert',
+      text: `Hi ${user.full_name},\n\nWe detected a successful login to the OIBL Schemes system at ${new Date().toLocaleString()}. If this was not you, please contact the administrator immediately.`
+    });
 
-console.log(
-  "LOGIN ROLE:",
-  req.session.user.role
-);
+    if (getResetPasswordRequired(user.password_reset_required)) {
+      return res.redirect("/change-password?forced=1");
+    }
 
-return res.redirect(
-  getDashboardRoute(user.role)
-);
-    return res.redirect(
-      "/login?error=Unable+to+log+in"
-    );
-  }
-  catch (err) {
+    return res.redirect(getDashboardRoute(user.role));
+  } catch (err) {
     console.error("[LOGIN ERROR]", err);
     return res.redirect("/login?error=Unable+to+log+in");
   }
-}
-);
+});
 
 app.get("/signup", redirectIfLoggedIn, (req, res) => {
   res.render("auth/signup", { error: req.query.error || "" });
@@ -597,27 +762,21 @@ const requireSuperAdmin = (req, res, next) => {
   if (!req.session.user) {
     return res.redirect("/login");
   }
-  const ROLES = {
-  SUPER_ADMIN: "Super Admin",
-  ADMIN: "Admin",
-  BDO: "Business Development Officer",
-  STAFF: "Staff"
-};
 
-  console.log(
-    "CURRENT ROLE:",
-    req.session.user.role
-  );
-
-  if (
-    req.session.user.role !== "Super Admin"
-  ) {
-    return res.redirect(
-      getDashboardRoute(req.session.user.role)
-    );
+  if (req.session.user.role !== "Super Admin") {
+    return res.redirect(getDashboardRoute(req.session.user.role));
   }
 
   next();
+};
+
+const getSystemPasswordLength = async () => {
+  try {
+    const [rows] = await db.query('SELECT password_length FROM system_settings ORDER BY created_at DESC LIMIT 1');
+    return Number(rows[0]?.password_length || 8);
+  } catch (err) {
+    return 8;
+  }
 };
 
 // ---------- Claims Routes ----------
@@ -1743,7 +1902,8 @@ app.get('/admin/bdo', requireAuth, async (req, res) => {
             stats: stats[0],
             recentActivities,
             leaderboard,
-            schemes
+            schemes,
+            user: req.session.user
         });
       console.log(schemes)
       console.log(topOpportunities)
@@ -1755,27 +1915,127 @@ app.get('/admin/bdo', requireAuth, async (req, res) => {
 });
 
 app.get('/bdo/reports', requireAuth, async (req, res) => {
-
-    if (
-        normalizeRole(req.session.user.role) !==
-        'Business Development Officer'
-    ) {
-        return res.redirect(
-            getDashboardRoute(req.session.user.role)
-        );
+    if (normalizeRole(req.session.user.role) !== 'Business Development Officer') {
+        return res.redirect(getDashboardRoute(req.session.user.role));
     }
 
-    res.render('BDO/report', {
-        user: req.session.user,
-        schemes: [],
-        prospects: [],
-        followups: [],
-        wonSchemes: 0,
-        totalSchemes: 0,
-        totalProspects: 0,
-        estimatedPremium: 0
-    });
+    try {
+        const userId = req.session.user.id;
 
+        const [schemes] = await db.query(
+            `SELECT *
+             FROM schemes
+             WHERE created_by = ?
+             ORDER BY created_at DESC`,
+            [userId]
+        );
+
+        const [prospects] = await db.query(
+            `SELECT *
+             FROM prospects
+             WHERE created_by = ?
+             ORDER BY created_at DESC`,
+            [userId]
+        );
+
+        const [followups] = await db.query(
+            `SELECT prospect_id, company_name, follow_up_date, stage
+             FROM prospects
+             WHERE created_by = ? AND follow_up_date IS NOT NULL
+             ORDER BY follow_up_date ASC`,
+            [userId]
+        );
+
+        const wonSchemes = prospects.filter((prospect) => String(prospect.stage || '').toLowerCase() === 'won').length;
+        const estimatedPremium = prospects.reduce((sum, prospect) => sum + Number(prospect.estimated_premium || 0), 0);
+
+        res.render('BDO/report', {
+            user: req.session.user,
+            schemes,
+            prospects,
+            followups,
+            wonSchemes,
+            totalSchemes: schemes.length,
+            totalProspects: prospects.length,
+            estimatedPremium
+        });
+    } catch (error) {
+        console.error('[bdo reports] failed to load report data:', error);
+        res.status(500).send('Unable to load BDO reports.');
+    }
+});
+
+app.get('/bdo/reports/export-excel', requireAuth, async (req, res) => {
+    if (normalizeRole(req.session.user.role) !== 'Business Development Officer') {
+        return res.redirect(getDashboardRoute(req.session.user.role));
+    }
+
+    try {
+        const userId = req.session.user.id;
+
+        const [schemes] = await db.query(
+            `SELECT scheme_id, scheme_name, status, insurer, policy_type, premium, inception_date, assigned_to, created_at
+             FROM schemes
+             WHERE created_by = ?
+             ORDER BY created_at DESC`,
+            [userId]
+        );
+
+        const [prospects] = await db.query(
+            `SELECT prospect_id, company_name, contact_person, email, phone, stage, estimated_premium, follow_up_date, created_at
+             FROM prospects
+             WHERE created_by = ?
+             ORDER BY created_at DESC`,
+            [userId]
+        );
+
+        const workbook = new ExcelJS.Workbook();
+
+        const schemesSheet = workbook.addWorksheet('Schemes');
+        schemesSheet.columns = [
+            { header: 'Scheme ID', key: 'scheme_id' },
+            { header: 'Scheme Name', key: 'scheme_name' },
+            { header: 'Status', key: 'status' },
+            { header: 'Insurer', key: 'insurer' },
+            { header: 'Policy Type', key: 'policy_type' },
+            { header: 'Premium', key: 'premium' },
+            { header: 'Inception Date', key: 'inception_date' },
+            { header: 'Assigned To', key: 'assigned_to' },
+            { header: 'Created At', key: 'created_at' }
+        ];
+        schemes.forEach((row) => schemesSheet.addRow(row));
+
+        const prospectsSheet = workbook.addWorksheet('Prospects');
+        prospectsSheet.columns = [
+            { header: 'Prospect ID', key: 'prospect_id' },
+            { header: 'Company Name', key: 'company_name' },
+            { header: 'Contact Person', key: 'contact_person' },
+            { header: 'Email', key: 'email' },
+            { header: 'Phone', key: 'phone' },
+            { header: 'Stage', key: 'stage' },
+            { header: 'Estimated Premium', key: 'estimated_premium' },
+            { header: 'Follow Up', key: 'follow_up_date' },
+            { header: 'Created At', key: 'created_at' }
+        ];
+        prospects.forEach((row) => prospectsSheet.addRow(row));
+
+        await downloadWorkbook(res, workbook, `bdo-report-${Date.now()}.xlsx`);
+    } catch (error) {
+        console.error('[bdo reports export] failed:', error);
+        res.status(500).send('Unable to export BDO report.');
+    }
+});
+
+app.get('/bdo/reports/schemes', requireAuth, async (req, res) => {
+    return res.redirect('/bdo/reports');
+});
+
+app.get('/bdo/reports/prospects', requireAuth, async (req, res) => {
+    return res.redirect('/bdo/reports');
+});
+
+app.get('/bdo/reports/followups', requireAuth, async (req, res) => {
+    return res.redirect('/bdo/reports');
 });
 
 
@@ -1967,6 +2227,7 @@ app.get('/bdo/prospects', requireAuth, async (req, res) => {
 const [prospects] = await db.query(`
     SELECT 
         p.*, 
+ 
         u.full_name AS bdo_name 
     FROM prospects p
     LEFT JOIN staff u ON u.staff_id = p.created_by
@@ -2144,51 +2405,33 @@ app.post('/bdo/prospects/update/:id', requireAuth, async (req, res) => {
             `
             UPDATE prospects
             SET
-                company_name = ?,
-                industry = ?,
-                location = ?,
-                county = ?,
                 contact_person = ?,
-                phone = ?,
+                company_name = ?,
                 email = ?,
-                lead_source = ?,
-                estimated_members = ?,
+                phone = ?,
+                location = ?,
                 estimated_premium = ?,
-                stage = ?,
                 follow_up_date = ?,
-                remarks = ?
-            WHERE prospect_id = ?
-            `,
+                stage = ?
+            WHERE prospect_id = ? AND created_by = ?`,
             [
-                req.body.company_name,
-                req.body.industry,
-                req.body.location,
-                req.body.county,
                 req.body.contact_person,
-                req.body.phone,
+                req.body.company_name,
                 req.body.email,
-                req.body.lead_source,
-                req.body.estimated_members,
+                req.body.phone,
+                req.body.location,
                 req.body.estimated_premium,
-                req.body.stage,
                 req.body.follow_up_date,
-                req.body.remarks,
-                req.params.id
+                req.body.stage,
+                req.params.id,
+                req.session.user.id
             ]
         );
 
-        await recordActivity({
-            userId: req.session.user.id,
-            userName: req.session.user.full_name,
-            title: "Prospect updated",
-            detail: `Prospect ${req.body.company_name} was updated by ${req.session.user.full_name}.`
-        });
-
         res.redirect('/bdo/prospects');
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Failed to update prospect');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send(err.message);
     }
 });
 
@@ -2223,12 +2466,12 @@ app.get('/bdo/schemes/create/:prospectId', requireAuth, async (req, res) => {
         }
 
         const [prospectRows] = await db.query(
-            `SELECT * FROM prospects WHERE prospect_id = ? LIMIT 1`,
+            `SELECT * FROM prospects WHERE prospect_id = ?`,
             [prospectId]
         );
 
         if (!prospectRows.length) {
-            return res.status(404).send('Prospect not found.');
+            return res.status(404).send('Prospect not found');
         }
 
         const prospect = prospectRows[0];
@@ -2450,7 +2693,6 @@ app.get('/bdo/convert/:type/:prospectId', requireAuth, async (req, res) => {
 });
 
 app.post('/bdo/convert/submit', requireAuth, async (req, res) => {
-    // 1. Get an explicit connection from the pool for database transaction safety
     const connection = await db.getConnection();
 
     try {
@@ -2458,8 +2700,8 @@ app.post('/bdo/convert/submit', requireAuth, async (req, res) => {
 
         const {
             prospect_id,
-            prospect_type, // 'Corporate' or 'Retail'
-            policy_number,
+            prospect_type,
+            policy_type,
             insurer_id,
             product_category,
             start_date,
@@ -2468,94 +2710,92 @@ app.post('/bdo/convert/submit', requireAuth, async (req, res) => {
             net_premium,
             statutory_levies,
             commission_rate_percent,
-            bdo_commission_rate_percent
+            bdo_commission_rate_percent,
+            policy_number
         } = req.body;
 
         const createdBy = req.session.user.id;
+        const policyNumber = String(policy_number || `POL-${Date.now()}`).trim() || `POL-${Date.now()}`;
 
-        // ====================================================================
-        // STEP 1: FETCH PROSPECT DATA BASED ON TYPE
-        // ====================================================================
-        let clientData = {};
-        
+        let clientRecord = null;
+
         if (prospect_type === 'Corporate') {
             const [rows] = await connection.query(
-                `SELECT * FROM prospects WHERE id = ? FOR UPDATE`, 
+                `SELECT * FROM prospects WHERE prospect_id = ? FOR UPDATE`,
                 [prospect_id]
             );
+
             if (!rows.length) throw new Error('Corporate prospect not found');
-            
-            const p = rows[0];
-            clientData = {
+
+            const prospect = rows[0];
+            clientRecord = {
                 client_type: 'Corporate',
-                company_or_full_name: p.company_name,
+                company_or_full_name: prospect.company_name,
                 registration_or_national_id: null,
-                email: p.email,
-                phone: p.phone,
-                physical_address: `${p.location || ''}, ${p.county || ''}`.trim()
+                email: prospect.email,
+                phone: prospect.phone,
+                physical_address: `${prospect.location || ''}, ${prospect.county || ''}`.trim()
             };
 
-            // Update prospect stage to Won if not already set
-            await connection.query(`UPDATE prospects SET stage = 'Won' WHERE id = ?`, [prospect_id]);
-
-        } else if (prospect_type === 'Retail') {
-            const [rows] = await connection.query(
-                `SELECT * FROM individual_prospects WHERE id = ? FOR UPDATE`, 
+            await connection.query(
+                `UPDATE prospects SET stage = 'Won' WHERE prospect_id = ?`,
                 [prospect_id]
             );
+        } else if (prospect_type === 'Retail') {
+            const [rows] = await connection.query(
+                `SELECT * FROM individual_prospects WHERE id = ? FOR UPDATE`,
+                [prospect_id]
+            );
+
             if (!rows.length) throw new Error('Retail prospect not found');
 
-            const p = rows[0];
-            clientData = {
+            const prospect = rows[0];
+            clientRecord = {
                 client_type: 'Retail',
-                company_or_full_name: `${p.first_name} ${p.last_name}`.trim(),
-                registration_or_national_id: p.national_id || null,
-                email: p.email,
-                phone: p.phone,
+                company_or_full_name: `${prospect.first_name || ''} ${prospect.last_name || ''}`.trim(),
+                registration_or_national_id: prospect.national_id || null,
+                email: prospect.email,
+                phone: prospect.phone,
                 physical_address: null
             };
 
-            // Update prospect stage to Won if not already set
-            await connection.query(`UPDATE individual_prospects SET stage = 'Won' WHERE id = ?`, [prospect_id]);
+            await connection.query(
+                `UPDATE individual_prospects SET stage = 'Won' WHERE id = ?`,
+                [prospect_id]
+            );
         } else {
             throw new Error('Invalid prospect type specified.');
         }
 
-        // ====================================================================
-        // STEP 2: CREATE OR FIND CLIENT IN clients_master
-        // ====================================================================
         let clientId;
         const [existingClient] = await connection.query(
             `SELECT id FROM clients_master WHERE email = ? LIMIT 1`,
-            [clientData.email]
+            [clientRecord.email]
         );
 
         if (existingClient.length > 0) {
             clientId = existingClient[0].id;
         } else {
-            // Generate a unique client code (e.g. CLI-2026-X8F2)
-            const clientCode = `CLI-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            const clientCode = `CLI-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
             const [clientResult] = await connection.query(
-                `INSERT INTO clients_master 
+                `INSERT INTO clients_master
                 (client_code, client_type, company_or_full_name, registration_or_national_id, email, phone, physical_address)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
                     clientCode,
-                    clientData.client_type,
-                    clientData.company_or_full_name,
-                    clientData.registration_or_national_id,
-                    clientData.email,
-                    clientData.phone,
-                    clientData.physical_address
+                    clientRecord.client_type,
+                    clientRecord.company_or_full_name,
+                    clientRecord.registration_or_national_id,
+                    clientRecord.email,
+                    clientRecord.phone,
+                    clientRecord.physical_address
                 ]
             );
+
             clientId = clientResult.insertId;
         }
 
-        // ====================================================================
-        // STEP 3: CREATE ACTIVE POLICY RECORD
-        // ====================================================================
         const [policyResult] = await connection.query(
             `INSERT INTO active_policies (
                 policy_number,
@@ -2573,15 +2813,15 @@ app.post('/bdo/convert/submit', requireAuth, async (req, res) => {
                 created_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?)`,
             [
-                policy_number,
+                policyNumber,
                 clientId,
                 insurer_id,
                 product_category,
                 start_date,
                 end_date,
-                gross_written_premium || 0.00,
-                net_premium || 0.00,
-                statutory_levies || 0.00,
+                Number(gross_written_premium || 0),
+                Number(net_premium || 0),
+                Number(statutory_levies || 0),
                 prospect_type,
                 prospect_id,
                 createdBy
@@ -2589,18 +2829,10 @@ app.post('/bdo/convert/submit', requireAuth, async (req, res) => {
         );
 
         const policyId = policyResult.insertId;
-
-        // ====================================================================
-        // STEP 4: CALCULATE AND CREATE COMMISSION SCHEDULE
-        // ====================================================================
         const commRate = parseFloat(commission_rate_percent || 0);
         const bdoCommRate = parseFloat(bdo_commission_rate_percent || 0);
         const grossPremium = parseFloat(gross_written_premium || 0);
-
-        // Expected Broker Commission = Gross Premium * (Commission Rate %)
         const expectedCommissionAmount = (grossPremium * commRate) / 100;
-        
-        // Expected BDO Payout = Broker Commission * (BDO Split %)
         const expectedBdoPayout = (expectedCommissionAmount * bdoCommRate) / 100;
 
         await connection.query(
@@ -2620,12 +2852,9 @@ app.post('/bdo/convert/submit', requireAuth, async (req, res) => {
             ]
         );
 
-        // ====================================================================
-        // STEP 5: INITIALIZE RENEWAL TRACKING (90-Day Prior Trigger)
-        // ====================================================================
         const policyEndDate = new Date(end_date);
         const renewalNoticeDate = new Date(policyEndDate);
-        renewalNoticeDate.setDate(renewalNoticeDate.getDate() - 90); // 90 days before expiration
+        renewalNoticeDate.setDate(renewalNoticeDate.getDate() - 90);
 
         await connection.query(
             `INSERT INTO policy_renewals (
@@ -2643,20 +2872,15 @@ app.post('/bdo/convert/submit', requireAuth, async (req, res) => {
             ]
         );
 
-        // Commit transaction if all inserts succeed
         await connection.commit();
 
-        req.flash('success_msg', `Policy ${policy_number} successfully activated!`);
+        req.flash('success_msg', `Policy ${policyNumber} successfully activated!`);
         res.redirect('/bdo/policies');
-
     } catch (error) {
-        // Rollback all changes if any query fails
         await connection.rollback();
         console.error('Policy Conversion Transaction Error:', error);
         res.status(500).send(`Failed to convert prospect to active policy: ${error.message}`);
-
     } finally {
-        // Release connection back to pool
         connection.release();
     }
 });
@@ -2707,7 +2931,6 @@ app.post('/bdo/schemes/update/:id', requireAuth, async (req, res) => {
         const premiumValue = req.body.premium === '' || req.body.premium === null || req.body.premium === undefined
             ? null
             : Number(req.body.premium);
-        const status = normalizeSchemeStatus(req.body.status || 'Draft');
 
         await db.query(
             `UPDATE schemes
@@ -2718,7 +2941,7 @@ app.post('/bdo/schemes/update/:id', requireAuth, async (req, res) => {
                 insurer,
                 policyType,
                 Number.isFinite(premiumValue) ? premiumValue : null,
-                status,
+                req.body.status,
                 req.body.inception_date || null,
                 req.body.assigned_to || req.session.user.full_name,
                 req.params.id
@@ -2740,95 +2963,54 @@ app.post('/bdo/schemes/update/:id', requireAuth, async (req, res) => {
     }
 });
 
-app.put('/bdo/prospects/edit/:id', requireAuth, async (req, res) => {
-    try {
-        await db.query(`
-            UPDATE prospects
-            SET
-                contact_person = ?,
-                company_name = ?,
-                email = ?,
-                phone = ?,
-                location = ?,
-                estimated_premium = ?,
-                follow_up_date = ?,
-                stage = ?
-            WHERE prospect_id = ? AND created_by = ?`,
-            [
-                req.body.contact_person,
-                req.body.company_name,
-                req.body.email,
-                req.body.phone,
-                req.body.location,
-                req.body.estimated_premium,
-                req.body.follow_up_date,
-                req.body.stage,
-                req.params.id,
-                req.session.user.id
-            ]
-        );
+app.post('/super-admin/users/reset-password/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT staff_id, full_name, email FROM staff WHERE staff_id = ? LIMIT 1',
+      [req.params.id]
+    );
 
-        res.redirect('/bdo/prospects');
-    } catch (err) {
-        console.error(err);
-        res.status(500).send(err.message);
-    }
-});
-
-app.post('/bdo/schemes/store', requireAuth, async (req, res) => {
-    if (normalizeRole(req.session.user.role) !== "Business Development Officer") {
-        return res.redirect(getDashboardRoute(req.session.user.role));
+    if (!rows.length) {
+      return res.redirect('/super-admin/users?error=User+not+found');
     }
 
-    try {
-        const schemeName = String(req.body.scheme_name || '').trim();
-        if (!schemeName) {
-            return res.status(400).send('Scheme name is required.');
-        }
+    const targetUser = rows[0];
+    const minimumLength = await getSystemPasswordLength();
+    const temporaryPassword = generateTemporaryPassword(Math.max(12, minimumLength));
 
-        const premiumValue = req.body.premium === '' || req.body.premium === undefined || req.body.premium === null
-            ? null
-            : Number(req.body.premium);
+    const passwordUpdated = await updateUserPassword({
+      staffId: targetUser.staff_id,
+      password: temporaryPassword,
+      forceReset: true
+    });
 
-        await db.query(
-            `INSERT INTO schemes (
-                scheme_name,
-                status,
-                insurer,
-                policy_type,
-                premium,
-                created_by,
-                assigned_to
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-                schemeName,
-                normalizeSchemeStatus(req.body.status || 'New'),
-                req.body.insurer || null,
-                req.body.policy_type || null,
-                Number.isFinite(premiumValue) ? premiumValue : null,
-                req.session.user.id,
-                req.body.assigned_to || req.session.user.full_name
-            ]
-        );
-
-        await recordActivity({
-            userId: req.session.user.id,
-            userName: req.session.user.full_name,
-            title: "Scheme created from prospect",
-            detail: `${schemeName} was created from a prospect by ${req.session.user.full_name}.`
-        });
-
-        await notifyUserByEmail({
-            to: req.session.user.email,
-            subject: 'Scheme created from prospect',
-            text: `Hi ${req.session.user.full_name},\n\nA new scheme titled "${schemeName}" was created from a prospect in the OIBL Schemes system.`
-        });
-
-        res.redirect('/bdo/schemes');
-    } catch (err) {
-        console.error('[activity] failed to record BDO scheme creation:', err.message);
-        res.status(500).send('Unable to create scheme from prospect.');
+    if (!passwordUpdated) {
+      return res.redirect('/super-admin/users?error=Unable+to+reset+password');
     }
+
+    await recordActivity({
+      userId: req.session.user.id,
+      userName: req.session.user.full_name,
+      title: 'Password reset by administrator',
+      detail: `${req.session.user.full_name} reset the password for ${targetUser.full_name}.`
+    });
+
+    const mailResult = await notifyUserByEmail({
+      to: targetUser.email,
+      subject: 'Your OIBL Schemes password was reset',
+      text: `Hello ${targetUser.full_name},\n\nAn administrator reset your password.\n\nTemporary password: ${temporaryPassword}\n\nLog in with this temporary password and create a new password immediately.`,
+      html: `<p>Hello ${targetUser.full_name},</p><p>An administrator reset your password.</p><p><strong>Temporary password:</strong> ${temporaryPassword}</p><p>Log in with this temporary password and create a new password immediately.</p>`
+    });
+
+    if (!mailResult.sent) {
+      return res.redirect('/super-admin/users?error=Password+reset+but+email+delivery+failed');
+    }
+
+    return res.redirect('/super-admin/users?success=Password+reset+and+email+sent');
+  } catch (err) {
+    console.error('[super-admin reset-password]', err);
+    return res.redirect('/super-admin/users?error=Unable+to+reset+password');
+  }
 });
 
 app.get("/super-admin-dashboard",  requireSuperAdmin,
@@ -2855,7 +3037,7 @@ app.get("/super-admin-dashboard",  requireSuperAdmin,
         await db.query(
           `SELECT COUNT(*) total
            FROM staff
-           WHERE role = 'Super Admin'`
+           WHERE role = 'Business Development Officer'`
         );
 
       const activities =
@@ -2894,6 +3076,7 @@ app.get('/super-admin/users', requireSuperAdmin, async (req, res) => {
                 email,
                 role,
                 status,
+                password_reset_required,
                 created_at
             FROM staff
             ORDER BY created_at DESC
@@ -2901,7 +3084,9 @@ app.get('/super-admin/users', requireSuperAdmin, async (req, res) => {
 
         res.render('super_admin/users', {
             users,
-            user: req.session.user
+            user: req.session.user,
+            error: req.query.error || '',
+            success: req.query.success || ''
         });
 
     } catch (err) {
@@ -2916,39 +3101,68 @@ app.get('/super-admin/users', requireSuperAdmin, async (req, res) => {
 
 });
 
+app.get('/super-admin/users/new', requireSuperAdmin, (req, res) => {
+  return res.redirect('/super-admin/users?error=Super+admin+cannot+add+new+users');
+});
 
+app.post('/super-admin/users/create', requireSuperAdmin, (req, res) => {
+  return res.redirect('/super-admin/users?error=Super+admin+cannot+add+new+users');
+});
+
+// Edit User Page
 app.get('/super-admin/users/edit/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const staffId = req.params.id;
 
-  const [rows] = await db.query(
-    'SELECT * FROM staff WHERE staff_id = ?',
-    [req.params.id]
-  );
+    console.log('Editing User ID:', staffId);
 
-  if (!rows.length) {
-    return res.status(404).send('User not found');
+    const [rows] = await db.query(
+      'SELECT * FROM staff WHERE staff_id = ?',
+      [staffId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).send(`User with ID ${staffId} not found`);
+    }
+
+    res.render('super_admin/edit_user', {
+      selectedUser: rows[0],
+      user: req.session.user
+    });
+
+  } catch (err) {
+    console.error('Edit User Error:', err);
+    res.status(500).send('Internal Server Error');
   }
-
-  res.render('super_admin/edit_user', {
-    selectedUser: rows[0],
-    user: req.session.user
-  });
-
 });
 
-app.get('/super-admin/users/deactivate/:id',
-requireSuperAdmin,
-async (req, res) => {
 
-  await db.query(
-    `UPDATE staff
-     SET status = 'Inactive'
-     WHERE staff_id = ?`,
-    [req.params.id]
-  );
+app.get('/super-admin/users/deactivate/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const staffId = req.params.id;
 
-  res.redirect('/super-admin/users');
+    await db.query(
+      `UPDATE staff
+       SET status = 'Inactive'
+       WHERE staff_id = ?`,
+      [staffId]
+    );
 
+    await recordActivity({
+      userId: req.session.user.id,
+      userName: req.session.user.full_name,
+      title: 'User Deactivated',
+      detail: `Staff ID ${staffId} was deactivated`
+    });
+
+    res.redirect('/super-admin/users');
+
+  } catch (err) {
+    console.error('Deactivate User Error:', err);
+    res.status(500).send('Unable to deactivate user');
+  }
 });
+
 
 app.get('/super-admin/roles', requireSuperAdmin, async (req, res) => {
 
@@ -2989,9 +3203,8 @@ app.get('/super-admin/audit', requireSuperAdmin, async (req, res) => {
 
 app.get('/super-admin/settings', requireSuperAdmin, async (req, res) => {
   try {
-
     const [rows] = await db.query(
-      'SELECT * FROM system_settings LIMIT 1'
+      'SELECT * FROM system_settings ORDER BY created_at DESC LIMIT 1'
     );
 
     const settings = rows[0] || {
@@ -3006,8 +3219,7 @@ app.get('/super-admin/settings', requireSuperAdmin, async (req, res) => {
     });
 
   } catch (err) {
-
-    console.error(err);
+    console.error('[super-admin settings]', err);
 
     res.render('super_admin/settings', {
       settings: {
@@ -3017,7 +3229,6 @@ app.get('/super-admin/settings', requireSuperAdmin, async (req, res) => {
       },
       user: req.session.user
     });
-
   }
 });
 
@@ -3085,7 +3296,6 @@ app.get('/schemes', async (req, res) => {
 
     res.render('bdo/schemes', {
         schemes,
-        search,
         prospectId,
         stats: {
             total: 125,
@@ -3111,53 +3321,64 @@ async (req, res) => {
         email,
         role,
         status,
-        password
+        password,
+        force_password_change
     } = req.body;
 
     try {
+        const minLength = await getSystemPasswordLength();
+        const targetUser = await getUserByEmail(String(email || '').trim().toLowerCase());
+
+        let passwordResetRequired = !!force_password_change;
 
         if (password && password.trim() !== '') {
+            if (password.length < minLength) {
+                return res.redirect('/super-admin/users?error=Password+must+be+at+least+' + minLength + '+characters');
+            }
+            if (!passwordMeetsPolicy(password, minLength)) {
+                return res.redirect('/super-admin/users?error=Password+must+include+letters+and+numbers');
+            }
 
-            const hashedPassword =
-                await bcrypt.hash(password, 10);
-
-            await db.query(
-                `UPDATE staff
-                 SET full_name = ?,
-                     email = ?,
-                     role = ?,
-                     status = ?,
-                     password = ?
-                 WHERE staff_id = ?`,
-                [
-                    full_name,
-                    email,
-                    role,
-                    status,
-                    hashedPassword,
-                    req.params.id
-                ]
-            );
-
-        } else {
-
-            await db.query(
-                `UPDATE staff
-                 SET full_name = ?,
-                     email = ?,
-                     role = ?,
-                     status = ?
-                 WHERE staff_id = ?`,
-                [
-                    full_name,
-                    email,
-                    role,
-                    status,
-                    req.params.id
-                ]
-            );
-
+            passwordResetRequired = true;
+            await updateUserPassword({
+              staffId: req.params.id,
+              password,
+              forceReset: true
+            });
         }
+
+        await db.query(
+            `UPDATE staff
+             SET full_name = ?,
+                 email = ?,
+                 role = ?,
+                 status = ?,
+                 password_reset_required = ?
+             WHERE staff_id = ?`,
+            [
+                full_name,
+                email,
+                role,
+                status,
+                passwordResetRequired ? 1 : 0,
+                req.params.id
+            ]
+        );
+
+        if (password && password.trim() !== '' && targetUser && targetUser.email) {
+            await notifyUserByEmail({
+              to: targetUser.email,
+              subject: 'Password updated by administrator',
+              text: `Hello ${targetUser.full_name},\n\nYour account password was updated by an administrator. Please log in and change it at your next login.\n\nEmail: ${targetUser.email}`
+            });
+        }
+
+        await recordActivity({
+            userId: req.session.user.id,
+            userName: req.session.user.full_name,
+            title: 'User updated',
+            detail: `User ${full_name} was updated by ${req.session.user.full_name}.`
+        });
 
         res.redirect('/super-admin/users');
 
